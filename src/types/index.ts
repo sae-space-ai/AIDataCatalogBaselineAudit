@@ -57,7 +57,8 @@ export type EvidenceType =
   | 'CLASSIFICATION_CREATED'
   | 'CLASSIFICATION_REVIEWED'
   | 'QUALITY_CHECK_COMPLETED'
-  | 'CONNECTION_TESTED';
+  | 'CONNECTION_TESTED'
+  | 'POLICY_EVALUATION';
 
 export type AuditAction =
   | 'CREATE'
