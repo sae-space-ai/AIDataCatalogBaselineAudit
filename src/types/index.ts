@@ -58,7 +58,11 @@ export type EvidenceType =
   | 'CLASSIFICATION_REVIEWED'
   | 'QUALITY_CHECK_COMPLETED'
   | 'CONNECTION_TESTED'
-  | 'POLICY_EVALUATION';
+  | 'POLICY_EVALUATION'
+  | 'PRIVACY_TRANSFORMATION_PROPOSED'
+  | 'PRIVACY_TRANSFORMATION_REVIEWED'
+  | 'PRIVACY_RISK_ASSESSED'
+  | 'PRIVACY_ASSESSMENT_INVALIDATED';
 
 export type AuditAction =
   | 'CREATE'
@@ -379,3 +383,84 @@ export interface ImpactAnalysis {
   potentiallyAffected: string[]; // Asset IDs
   analysisDate: string;
 }
+
+// ---- PRIVACY GOVERNANCE (ORDER 11E) ----
+
+export type PrivacyTransformationType = 
+  | 'ANONYMIZATION'
+  | 'PSEUDONYMIZATION'
+  | 'MASKING'
+  | 'TOKENIZATION'
+  | 'HASHING'
+  | 'GENERALIZATION'
+  | 'SUPPRESSION'
+  | 'AGGREGATION'
+  | 'ENCRYPTION'
+  | 'REDACTION';
+
+export type PrivacyTransformationStatus =
+  | 'PROPOSED'
+  | 'REQUIRES_REVIEW'
+  | 'APPROVED'
+  | 'EXECUTION_PENDING'
+  | 'EXECUTED'
+  | 'VERIFICATION_PENDING'
+  | 'VERIFIED'
+  | 'REJECTED'
+  | 'INVALIDATED';
+
+export type PrivacyExecutionMode = 'GOVERNANCE_ONLY' | 'WITH_EXECUTOR';
+
+export interface PrivacyTransformationRecord {
+  id: string;
+  assetId: string;
+  sourceId: string;
+  transformationType: PrivacyTransformationType;
+  technique: string;
+  purpose: string;
+  status: PrivacyTransformationStatus;
+  executionMode: PrivacyExecutionMode;
+  executorReference?: string;
+  executedAt?: string;
+  assessmentId?: string;
+  evidenceReferences: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ReidentificationRiskLevel = 'NOT_ASSESSED' | 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+
+export type ReidentificationRiskAssessmentMethod = 
+  | 'QUALITATIVE'
+  | 'SEMI_QUANTITATIVE'
+  | 'QUANTITATIVE';
+
+export interface ReidentificationRiskAssessment {
+  id: string;
+  subjectId: string;
+  subjectType: string;
+  assessmentMethod: ReidentificationRiskAssessmentMethod;
+  riskFactors: string[];
+  assumptions: string[];
+  dataLinkability: string;
+  externalDataRisk: string;
+  singlingOutRisk: string;
+  linkabilityRisk: string;
+  inferenceRisk: string;
+  residualRisk: ReidentificationRiskLevel;
+  assessmentResult: string;
+  assessor: string;
+  assessedAt: string;
+  validUntil?: string;
+  evidenceReferences: string[];
+}
+
+export type PrivacyGovernanceState = 
+  | 'NOT_TRANSFORMED'
+  | 'TRANSFORMATION_PROPOSED'
+  | 'TRANSFORMATION_IN_REVIEW'
+  | 'TRANSFORMATION_APPROVED'
+  | 'TRANSFORMATION_EXECUTED'
+  | 'TRANSFORMATION_VERIFIED'
+  | 'TRANSFORMATION_REJECTED'
+  | 'TRANSFORMATION_INVALIDATED';

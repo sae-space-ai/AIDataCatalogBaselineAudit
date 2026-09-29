@@ -40,6 +40,7 @@ import { ImpactAnalyzer } from '../services/impact-analyzer';
 import { PolicyEngine } from '../services/policy-engine';
 import { HumanReviewService } from '../services/human-review-service';
 import { SensitivityPropagationService } from '../services/sensitivity-propagation';
+import { PrivacyGovernanceService } from '../services/privacy-governance-service';
 import { getConfig, type ApplicationMode } from './config';
 import type {
   Asset,
@@ -82,6 +83,7 @@ interface ServiceContainer {
   impactAnalyzer: ImpactAnalyzer;
   policyEngine: PolicyEngine;
   humanReviewService: HumanReviewService;
+  privacyGovernanceService: PrivacyGovernanceService;
 }
 
 function createServiceContainer(): ServiceContainer {
@@ -158,6 +160,16 @@ function createServiceContainer(): ServiceContainer {
     auditRepo
   );
 
+  const privacyGovernanceService = new PrivacyGovernanceService(
+    assetRepo,
+    classificationRepo,
+    relationshipRepo,
+    evidenceRepo,
+    auditRepo,
+    humanReviewService,
+    impactAnalyzer
+  );
+
   const scanEngine = new ScanEngine(
     sourceRepo,
     scanRepo,
@@ -195,6 +207,7 @@ function createServiceContainer(): ServiceContainer {
     impactAnalyzer,
     policyEngine,
     humanReviewService,
+    privacyGovernanceService,
   };
 }
 
