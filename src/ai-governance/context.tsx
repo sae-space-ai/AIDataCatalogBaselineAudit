@@ -18,6 +18,7 @@ import {
   GovernanceInvalidationService,
   AIReproducibilityService 
 } from './integration-services';
+import { HumanReviewService } from '../services/human-review-service';
 import { useCatalog } from '../app/CatalogContext';
 
 interface AIGovernanceContextValue {
@@ -34,6 +35,7 @@ interface AIGovernanceContextValue {
   driftImpactService: DriftImpactService;
   governanceInvalidationService: GovernanceInvalidationService;
   aiReproducibilityService: AIReproducibilityService;
+  humanReviewService: HumanReviewService;
 }
 
 const AIGovernanceContext = createContext<AIGovernanceContextValue | null>(null);
@@ -124,6 +126,11 @@ export function AIGovernanceProvider({ children }: { children: React.ReactNode }
       services.auditRepo
     );
 
+    const humanReviewService = new HumanReviewService(
+      services.evidenceRepo,
+      services.auditRepo
+    );
+
     return {
       datasetService,
       trainingDataService,
@@ -138,6 +145,7 @@ export function AIGovernanceProvider({ children }: { children: React.ReactNode }
       driftImpactService,
       governanceInvalidationService,
       aiReproducibilityService,
+      humanReviewService,
     };
   }, [services]);
 

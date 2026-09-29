@@ -1,11 +1,18 @@
 // ============================================================
-// PAGES — AI Governance Export
+// PAGES — AI Governance Export (Multi-Format)
 // ============================================================
 
 import { useState } from 'react';
 import { useAIGovernance } from '../../ai-governance/context';
 import { useCatalog } from '../../app/CatalogContext';
+import { getConfig } from '../../app/config';
 import { Card, Button } from '../../components/ui';
+import { 
+  buildCanonicalExport, 
+  generateExportFilename,
+  generateXLSXBuffer,
+  generatePDFBlob
+} from '../../ai-governance/export';
 
 export function AIGovernanceExportPage() {
   const { services } = useCatalog();
@@ -15,151 +22,37 @@ export function AIGovernanceExportPage() {
     modelService,
     ragService,
     driftService,
-    sensitiveDataService
+    sensitiveDataService,
+    humanReviewService
   } = useAIGovernance();
 
   const [exportedData, setExportedData] = useState<string>('');
   const [isExporting, setIsExporting] = useState(false);
+  const [canonicalExport, setCanonicalExport] = useState<any>(null);
 
   const handleExport = () => {
     setIsExporting(true);
 
     try {
-      // Build export data
-      const exportData = {
-        exportTimestamp: new Date().toISOString(),
-        version: '1.0.0',
-        
-        // AI Use Cases
-        aiUseCases: aiGovernanceService.listAIUseCases().map(uc => ({
-          id: uc.id,
-          name: uc.name,
-          description: uc.description,
-          purpose: uc.purpose,
-          businessDomain: uc.businessDomain,
-          status: uc.status,
-          modelReferences: uc.modelReferences,
-          datasetReferences: uc.datasetReferences,
-          ragResourceReferences: uc.ragResourceReferences,
-          createdAt: uc.createdAt,
-          updatedAt: uc.updatedAt,
-        })),
+      // Build canonical export object (single source of truth)
+      const config = getConfig();
+      const canonical = buildCanonicalExport({
+        aiGovernanceService,
+        trainingDataService,
+        modelService,
+        ragService,
+        sensitiveDataService,
+        driftService,
+        humanReviewService,
+        evidenceRepo: services.evidenceRepo,
+        auditRepo: services.auditRepo,
+        applicationMode: config.mode,
+      });
 
-        // Training Data
-        trainingData: trainingDataService.listTrainingDatasets().map(td => ({
-          id: td.id,
-          datasetAssetId: td.datasetAssetId,
-          datasetVersionId: td.datasetVersionId,
-          purpose: td.purpose,
-          intendedUse: td.intendedUse,
-          lineageStatus: td.lineageStatus,
-          classificationStatus: td.classificationStatus,
-          qualityStatus: td.qualityStatus,
-          approvalStatus: td.approvalStatus,
-          createdAt: td.createdAt,
-          updatedAt: td.updatedAt,
-        })),
+      setCanonicalExport(canonical);
 
-        // Models
-        models: modelService.listModelProfiles().map(model => ({
-          assetId: model.assetId,
-          modelName: model.modelName,
-          modelVersion: model.modelVersion,
-          modelType: model.modelType,
-          purpose: model.purpose,
-          intendedUse: model.intendedUse,
-          governanceStatus: model.governanceStatus,
-          inputFields: model.inputSpecification.fields.length,
-          trainingDatasets: model.trainingDatasetReferences.length,
-          createdAt: model.createdAt,
-          updatedAt: model.updatedAt,
-        })),
-
-        // RAG Resources
-        ragResources: ragService.listRAGResourceProfiles().map(rag => ({
-          assetId: rag.assetId,
-          resourceType: rag.resourceType,
-          sourceReference: rag.sourceReference,
-          eligibilityStatus: rag.eligibilityStatus,
-          createdAt: rag.createdAt,
-          updatedAt: rag.updatedAt,
-        })),
-
-        // Drift Assessments
-        driftAssessments: driftService.listDriftAssessments().map(drift => ({
-          id: drift.id,
-          subjectType: drift.subjectType,
-          subjectId: drift.subjectId,
-          driftType: drift.driftType,
-          severity: drift.severity,
-          reason: drift.reason,
-          assessedAt: drift.assessedAt,
-        })),
-
-        // Sensitive Data Assessments
-        sensitiveDataAssessments: sensitiveDataService.listSensitiveDataAssessments().map(sda => ({
-          id: sda.id,
-          subjectType: sda.subjectType,
-          subjectId: sda.subjectId,
-          status: sda.status,
-          piiDetected: sda.piiDetected,
-          financialDataDetected: sda.financialDataDetected,
-          confidentialDataDetected: sda.confidentialDataDetected,
-          assessedAt: sda.assessedAt,
-        })),
-
-        // AI Governance Assessments
-        aiGovernanceAssessments: aiGovernanceService.listAIGovernanceAssessments().map(assessment => ({
-          id: assessment.id,
-          subjectType: assessment.subjectType,
-          subjectId: assessment.subjectId,
-          status: assessment.status,
-          datasetAssessments: assessment.datasetAssessments.length,
-          ragAssessments: assessment.ragAssessments.length,
-          evidenceCoverage: assessment.evidenceCoverage,
-          createdAt: assessment.createdAt,
-          completedAt: assessment.completedAt,
-        })),
-
-        // Evidence Summary
-        evidenceSummary: {
-          totalRecords: services.evidenceRepo.getAll().length,
-          aiRelated: services.evidenceRepo.getAll().filter(e => 
-            e.source.includes('ai-governance') || 
-            e.source.includes('training-data') ||
-            e.source.includes('model-governance') ||
-            e.source.includes('rag-governance') ||
-            e.source.includes('data-drift') ||
-            e.source.includes('sensitive-data')
-          ).length,
-        },
-
-        // Audit Summary
-        auditSummary: {
-          totalEvents: services.auditRepo.getAll().length,
-          aiRelated: services.auditRepo.getAll().filter(e => 
-            e.resourceType.includes('AI') ||
-            e.resourceType.includes('Training') ||
-            e.resourceType.includes('Model') ||
-            e.resourceType.includes('RAG') ||
-            e.resourceType.includes('Drift') ||
-            e.resourceType.includes('Sensitive')
-          ).length,
-        },
-
-        // Metadata
-        metadata: {
-          totalUseCases: aiGovernanceService.listAIUseCases().length,
-          totalTrainingDatasets: trainingDataService.listTrainingDatasets().length,
-          totalModels: modelService.listModelProfiles().length,
-          totalRAGResources: ragService.listRAGResourceProfiles().length,
-          totalDriftAssessments: driftService.listDriftAssessments().length,
-          totalSensitiveAssessments: sensitiveDataService.listSensitiveDataAssessments().length,
-        },
-      };
-
-      // Convert to JSON
-      const jsonString = JSON.stringify(exportData, null, 2);
+      // Convert to JSON for preview
+      const jsonString = JSON.stringify(canonical, null, 2);
       setExportedData(jsonString);
     } catch (error) {
       console.error('Export failed:', error);
@@ -169,16 +62,53 @@ export function AIGovernanceExportPage() {
     }
   };
 
-  const handleDownload = () => {
+  const handleDownloadJSON = () => {
+    if (!exportedData) return;
     const blob = new Blob([exportedData], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `ai-governance-export-${new Date().toISOString().split('T')[0]}.json`;
+    a.download = generateExportFilename('json');
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadXLSX = () => {
+    if (!canonicalExport) return;
+    try {
+      const buffer = generateXLSXBuffer(canonicalExport);
+      const arrayBuffer = buffer.buffer as ArrayBuffer;
+      const blob = new Blob([arrayBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = generateExportFilename('xlsx');
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('XLSX export failed:', error);
+    }
+  };
+
+  const handleDownloadPDF = () => {
+    if (!canonicalExport) return;
+    try {
+      const blob = generatePDFBlob(canonicalExport);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = generateExportFilename('pdf');
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('PDF export failed:', error);
+    }
   };
 
   const handleCopy = () => {
@@ -218,7 +148,7 @@ export function AIGovernanceExportPage() {
             </p>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button
               onClick={handleExport}
               disabled={isExporting}
@@ -227,8 +157,14 @@ export function AIGovernanceExportPage() {
             </Button>
             {exportedData && (
               <>
-                <Button variant="secondary" onClick={handleDownload}>
+                <Button variant="secondary" onClick={handleDownloadJSON}>
                   Download JSON
+                </Button>
+                <Button variant="secondary" onClick={handleDownloadXLSX}>
+                  Download XLSX
+                </Button>
+                <Button variant="secondary" onClick={handleDownloadPDF}>
+                  Download PDF
                 </Button>
                 <Button variant="secondary" onClick={handleCopy}>
                   Copy to Clipboard
@@ -249,7 +185,7 @@ export function AIGovernanceExportPage() {
           </div>
           <div className="mt-3 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
             <span>Size: {(exportedData.length / 1024).toFixed(2)} KB</span>
-            <span>Format: JSON</span>
+            <span>Format: JSON (preview)</span>
           </div>
         </Card>
       )}
