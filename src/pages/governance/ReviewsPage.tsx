@@ -3,13 +3,12 @@
 // ============================================================
 
 import { useState } from 'react';
-import { useGovernance } from '../../governance/context';
 import { useCatalog } from '../../app/CatalogContext';
 import { Card, Badge, Button, EmptyState } from '../../components/ui';
 import type { HumanReviewTask } from '../../agents/types';
 
 export function GovernanceReviewsPage() {
-  const { services, humanReviewTasks } = useCatalog();
+  const { humanReviewTasks, resolveHumanReviewTask, isDemoMode } = useCatalog();
   const [selectedReview, setSelectedReview] = useState<HumanReviewTask | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [priorityFilter, setPriorityFilter] = useState<string>('');
@@ -25,27 +24,14 @@ export function GovernanceReviewsPage() {
 
   const handleReviewAction = (taskId: string, action: 'APPROVE' | 'REJECT' | 'REQUEST_CHANGES' | 'ESCALATE') => {
     // In DEMO mode, use demo-reviewer
-    // In REAL mode without identity, show IDENTITY_REQUIRED_FOR_GOVERNANCE_DECISION
-    const isDemoMode = true; // Would check actual mode
-    
+    // In REAL mode without identity, show IDENTITY_REQUIRED_FOR_AI_GOVERNANCE_DECISION
     if (!isDemoMode) {
-      alert('IDENTITY_REQUIRED_FOR_GOVERNANCE_DECISION');
+      alert('IDENTITY_REQUIRED_FOR_AI_GOVERNANCE_DECISION');
       return;
     }
 
     // Use the context method to resolve the task
     resolveHumanReviewTask(taskId, action, 'demo-reviewer');
-    setSelectedReview(null);
-  };
-      subjectType: 'HumanReviewTask',
-      subjectId: taskId,
-      actor: 'demo-reviewer',
-      timestamp: new Date().toISOString(),
-      source: 'GovernanceReviewsPage.handleReviewAction',
-      metadata: { action },
-    });
-
-    alert(`Review action ${action} recorded for task ${taskId}`);
     setSelectedReview(null);
   };
 
