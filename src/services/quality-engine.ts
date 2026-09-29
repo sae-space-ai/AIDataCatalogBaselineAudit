@@ -166,6 +166,7 @@ export class QualityEngine {
       PASS: 1.0,
       WARNING: 0.6,
       FAIL: 0.0,
+      NOT_EVALUATED: 0.0,
     };
 
     const totalScore = results.reduce((sum, r) => sum + statusScores[r.status], 0);

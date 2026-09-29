@@ -3,14 +3,15 @@
 // ============================================================
 
 import { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useCatalog } from '../app/CatalogContext';
 import { Card, Badge, Tabs, Button, EmptyState, ProgressBar, DemoBanner } from '../components/ui';
 import { formatDate, timeAgo } from '../lib/utils';
-import type { Asset, AssetRelationship, Classification, QualityResult, TrustScore } from '../types';
+import type { Asset, AssetRelationship, Classification, QualityResult, TrustScore, ImpactAnalysis } from '../types';
 
 export function AssetDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const {
     getAssetById,
     getAssetVersions,
@@ -19,6 +20,7 @@ export function AssetDetailPage() {
     getQualityForAsset,
     getTrustScore,
     getEvidenceForSubject,
+    analyzeImpact,
     assets,
     reviewClassification,
   } = useCatalog();
@@ -44,11 +46,14 @@ export function AssetDetailPage() {
     );
   }
 
+  const impact = id ? analyzeImpact(id) : null;
+
   const tabs = [
     { id: 'overview', label: 'Overview' },
     { id: 'metadata', label: 'Metadata' },
     { id: 'quality', label: 'Quality', count: qualityResults.length },
     { id: 'lineage', label: 'Lineage', count: relationships.length },
+    { id: 'impact', label: 'Impact', count: impact ? impact.potentiallyAffected.length : 0 },
     { id: 'classification', label: 'Classification', count: classifications.length },
     { id: 'evidence', label: 'Evidence', count: evidenceRecords.length },
     { id: 'history', label: 'History', count: versions.length },
@@ -107,6 +112,7 @@ export function AssetDetailPage() {
         {activeTab === 'metadata' && <MetadataTab asset={asset} />}
         {activeTab === 'quality' && <QualityTab results={qualityResults} />}
         {activeTab === 'lineage' && <LineageTab relationships={relationships} assets={assets} assetId={asset.id} />}
+        {activeTab === 'impact' && <ImpactTab impact={impact} assets={assets} onNavigate={(id) => navigate(`/catalog/${id}`)} />}
         {activeTab === 'classification' && <ClassificationTab classifications={classifications} onReview={reviewClassification} />}
         {activeTab === 'evidence' && <EvidenceTab evidence={evidenceRecords} />}
         {activeTab === 'history' && <HistoryTab versions={versions} />}
@@ -193,6 +199,87 @@ function MetadataTab({ asset }: { asset: Asset }) {
         ))}
       </div>
     </Card>
+  );
+}
+
+// ---- Impact Tab ----
+
+interface ImpactTabProps {
+  impact: ImpactAnalysis | null;
+  assets: Asset[];
+  onNavigate: (id: string) => void;
+}
+
+function ImpactTab({ impact, assets, onNavigate }: ImpactTabProps) {
+  if (!impact) {
+    return <EmptyState title="No impact data" description="Impact analysis is not available." />;
+  }
+
+  if (impact.potentiallyAffected.length === 0 && impact.upstreamCount === 0 && impact.downstreamCount === 0) {
+    return (
+      <Card title="Impact Analysis">
+        <EmptyState
+          title="No dependencies detected"
+          description="This asset has no upstream or downstream relationships. Changes to this asset will not affect other assets."
+        />
+      </Card>
+    );
+  }
+
+  const affectedAssets = impact.potentiallyAffected
+    .map(assetId => assets.find(a => a.id === assetId))
+    .filter((a): a is Asset => a !== undefined);
+
+  return (
+    <div className="space-y-4">
+      <Card title="Impact Summary">
+        <div className="grid grid-cols-3 gap-4 text-center">
+          <div>
+            <div className="text-2xl font-bold text-blue-600">{impact.upstreamCount}</div>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Upstream Dependencies</p>
+          </div>
+          <div>
+            <div className="text-2xl font-bold text-purple-600">{impact.downstreamCount}</div>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Downstream Dependencies</p>
+          </div>
+          <div>
+            <div className="text-2xl font-bold text-orange-600">{impact.potentiallyAffected.length}</div>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Potentially Affected</p>
+          </div>
+        </div>
+        <p className="text-xs text-gray-400 mt-3 italic">
+          Analysis date: {formatDate(impact.analysisDate)}
+        </p>
+      </Card>
+
+      {affectedAssets.length > 0 && (
+        <Card title="Potentially Affected Assets">
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+            These assets have downstream dependencies and may be affected by changes to this asset.
+          </p>
+          <div className="space-y-2">
+            {affectedAssets.map(asset => (
+              <div
+                key={asset.id}
+                className="flex items-center justify-between py-2 px-3 rounded hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors"
+                onClick={() => onNavigate(asset.id)}
+              >
+                <div className="flex items-center gap-2">
+                  <Badge variant={
+                    asset.type === 'TABLE' ? 'success' :
+                    asset.type === 'COLUMN' ? 'default' : 'info'
+                  }>
+                    {asset.type}
+                  </Badge>
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{asset.name}</span>
+                </div>
+                <span className="text-xs text-gray-400">{asset.qualifiedName}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+    </div>
   );
 }
 

@@ -707,3 +707,202 @@ function createMockAsset(name: string, type: Asset['type'], qualifiedName: strin
     updatedAt: new Date().toISOString(),
   };
 }
+
+// ---- ImpactAnalyzer Tests ----
+
+import { ImpactAnalyzer } from '../src/services/impact-analyzer';
+import { PolicyEngine } from '../src/services/policy-engine';
+
+describe('ImpactAnalyzer', () => {
+  let analyzer: ImpactAnalyzer;
+  let relationshipRepo: InMemoryRelationshipRepository;
+  let assetRepo: InMemoryAssetRepository;
+
+  beforeEach(() => {
+    relationshipRepo = new InMemoryRelationshipRepository();
+    assetRepo = new InMemoryAssetRepository();
+    analyzer = new ImpactAnalyzer(relationshipRepo, assetRepo);
+  });
+
+  it('should analyze impact with no dependencies', () => {
+    const asset = createMockAsset('isolated', 'TABLE', 'db.schema.isolated');
+    assetRepo.save(asset);
+
+    const impact = analyzer.analyze(asset.id);
+    expect(impact.upstreamCount).toBe(0);
+    expect(impact.downstreamCount).toBe(0);
+    expect(impact.potentiallyAffected.length).toBe(0);
+  });
+
+  it('should detect downstream dependencies', () => {
+    const table1 = createMockAsset('table1', 'TABLE', 'db.schema.table1');
+    const table2 = createMockAsset('table2', 'TABLE', 'db.schema.table2');
+    assetRepo.save(table1);
+    assetRepo.save(table2);
+
+    relationshipRepo.save({
+      id: 'rel-1',
+      sourceAssetId: table1.id,
+      targetAssetId: table2.id,
+      type: 'DERIVED_FROM',
+      createdAt: new Date().toISOString(),
+    });
+
+    const impact = analyzer.analyze(table1.id);
+    expect(impact.downstreamCount).toBe(1);
+    expect(impact.potentiallyAffected).toContain(table2.id);
+  });
+
+  it('should detect upstream dependencies', () => {
+    const table1 = createMockAsset('table1', 'TABLE', 'db.schema.table1');
+    const table2 = createMockAsset('table2', 'TABLE', 'db.schema.table2');
+    assetRepo.save(table1);
+    assetRepo.save(table2);
+
+    relationshipRepo.save({
+      id: 'rel-1',
+      sourceAssetId: table1.id,
+      targetAssetId: table2.id,
+      type: 'DERIVED_FROM',
+      createdAt: new Date().toISOString(),
+    });
+
+    const impact = analyzer.analyze(table2.id);
+    expect(impact.upstreamCount).toBe(1);
+  });
+
+  it('should handle transitive dependencies', () => {
+    const a = createMockAsset('a', 'TABLE', 'db.schema.a');
+    const b = createMockAsset('b', 'TABLE', 'db.schema.b');
+    const c = createMockAsset('c', 'TABLE', 'db.schema.c');
+    assetRepo.save(a);
+    assetRepo.save(b);
+    assetRepo.save(c);
+
+    relationshipRepo.save({ id: '1', sourceAssetId: a.id, targetAssetId: b.id, type: 'DERIVED_FROM', createdAt: '' });
+    relationshipRepo.save({ id: '2', sourceAssetId: b.id, targetAssetId: c.id, type: 'DERIVED_FROM', createdAt: '' });
+
+    const impact = analyzer.analyze(a.id);
+    expect(impact.potentiallyAffected).toContain(b.id);
+    expect(impact.potentiallyAffected).toContain(c.id);
+  });
+
+  it('should not create infinite loops on circular dependencies', () => {
+    const a = createMockAsset('a', 'TABLE', 'db.schema.a');
+    const b = createMockAsset('b', 'TABLE', 'db.schema.b');
+    assetRepo.save(a);
+    assetRepo.save(b);
+
+    relationshipRepo.save({ id: '1', sourceAssetId: a.id, targetAssetId: b.id, type: 'DEPENDS_ON', createdAt: '' });
+    relationshipRepo.save({ id: '2', sourceAssetId: b.id, targetAssetId: a.id, type: 'DEPENDS_ON', createdAt: '' });
+
+    // Should not throw
+    const impact = analyzer.analyze(a.id);
+    expect(impact).toBeDefined();
+  });
+});
+
+// ---- PolicyEngine Tests ----
+
+describe('PolicyEngine', () => {
+  let engine: PolicyEngine;
+  let assetRepo: InMemoryAssetRepository;
+  let classificationRepo: InMemoryClassificationRepository;
+  let qualityRepo: InMemoryQualityRepository;
+  let relationshipRepo: InMemoryRelationshipRepository;
+  let evidenceRepo: InMemoryEvidenceRepository;
+  let auditRepo: InMemoryAuditRepository;
+
+  beforeEach(() => {
+    assetRepo = new InMemoryAssetRepository();
+    classificationRepo = new InMemoryClassificationRepository();
+    qualityRepo = new InMemoryQualityRepository();
+    relationshipRepo = new InMemoryRelationshipRepository();
+    evidenceRepo = new InMemoryEvidenceRepository();
+    auditRepo = new InMemoryAuditRepository();
+    engine = new PolicyEngine(assetRepo, classificationRepo, qualityRepo, relationshipRepo, evidenceRepo, auditRepo);
+  });
+
+  it('should return demo policies', () => {
+    const policies = engine.getPolicies();
+    expect(policies.length).toBeGreaterThan(0);
+    expect(policies.some(p => p.type === 'CLASSIFICATION')).toBe(true);
+    expect(policies.some(p => p.type === 'QUALITY')).toBe(true);
+    expect(policies.some(p => p.type === 'LINEAGE')).toBe(true);
+  });
+
+  it('should detect unreviewed PII', () => {
+    const asset = createMockColumn('email', 'varchar');
+    assetRepo.save(asset);
+
+    classificationRepo.save({
+      id: 'cls-1',
+      assetId: asset.id,
+      classificationType: 'PII_EMAIL',
+      confidence: 0.95,
+      method: 'RULE',
+      reason: 'Email pattern',
+      reviewStatus: 'PENDING',
+      createdAt: new Date().toISOString(),
+    });
+
+    const evaluation = engine.evaluatePolicyForAsset('policy-pii-review', asset.id);
+    expect(evaluation.status).toBe('FAIL');
+    expect(evaluation.violations.length).toBeGreaterThan(0);
+  });
+
+  it('should pass when PII is reviewed', () => {
+    const asset = createMockColumn('email', 'varchar');
+    assetRepo.save(asset);
+
+    classificationRepo.save({
+      id: 'cls-1',
+      assetId: asset.id,
+      classificationType: 'PII_EMAIL',
+      confidence: 0.95,
+      method: 'RULE',
+      reason: 'Email pattern',
+      reviewStatus: 'CONFIRMED',
+      createdAt: new Date().toISOString(),
+    });
+
+    const evaluation = engine.evaluatePolicyForAsset('policy-pii-review', asset.id);
+    expect(evaluation.status).toBe('PASS');
+  });
+
+  it('should detect quality failures', () => {
+    const asset = createMockAsset('table1', 'TABLE', 'db.schema.table1');
+    assetRepo.save(asset);
+
+    qualityRepo.save({
+      id: 'q-1',
+      assetId: asset.id,
+      ruleType: 'NULL_RATIO',
+      measuredValue: 0.5,
+      threshold: 0.05,
+      status: 'FAIL',
+      timestamp: new Date().toISOString(),
+    });
+
+    const evaluation = engine.evaluatePolicyForAsset('policy-quality-threshold', asset.id);
+    expect(evaluation.status).toBe('FAIL');
+  });
+
+  it('should detect missing lineage for tables', () => {
+    const table = createMockAsset('table1', 'TABLE', 'db.schema.table1');
+    assetRepo.save(table);
+
+    const evaluation = engine.evaluatePolicyForAsset('policy-lineage-completeness', table.id);
+    expect(evaluation.violations.length).toBeGreaterThan(0);
+  });
+
+  it('should evaluate all policies against all assets', () => {
+    const asset1 = createMockAsset('table1', 'TABLE', 'db.schema.table1');
+    const asset2 = createMockColumn('email', 'varchar');
+    assetRepo.save(asset1);
+    assetRepo.save(asset2);
+
+    const evaluations = engine.evaluateAll();
+    expect(evaluations.length).toBeGreaterThan(0);
+  });
+});

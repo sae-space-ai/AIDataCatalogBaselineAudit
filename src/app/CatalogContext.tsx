@@ -36,6 +36,8 @@ import { QualityEngine } from '../services/quality-engine';
 import { TrustScoreService } from '../services/trust-score';
 import { SearchService } from '../services/search-service';
 import { ScanEngine, ScanResult } from '../services/scan-engine';
+import { ImpactAnalyzer } from '../services/impact-analyzer';
+import { PolicyEngine } from '../services/policy-engine';
 import type {
   Asset,
   AssetRelationship,
@@ -71,6 +73,8 @@ interface ServiceContainer {
   trustScoreService: TrustScoreService;
   searchService: SearchService;
   scanEngine: ScanEngine;
+  impactAnalyzer: ImpactAnalyzer;
+  policyEngine: PolicyEngine;
 }
 
 function createServiceContainer(): ServiceContainer {
@@ -137,6 +141,17 @@ function createServiceContainer(): ServiceContainer {
     trustScoreService
   );
 
+  const impactAnalyzer = new ImpactAnalyzer(relationshipRepo, assetRepo);
+
+  const policyEngine = new PolicyEngine(
+    assetRepo,
+    classificationRepo,
+    qualityRepo,
+    relationshipRepo,
+    evidenceRepo,
+    auditRepo
+  );
+
   return {
     assetRepo,
     assetVersionRepo,
@@ -154,6 +169,8 @@ function createServiceContainer(): ServiceContainer {
     trustScoreService,
     searchService,
     scanEngine,
+    impactAnalyzer,
+    policyEngine,
   };
 }
 
@@ -187,6 +204,9 @@ interface CatalogContextValue {
   getTrustScore: (assetId: string) => TrustScore | undefined;
   getEvidenceForSubject: (subjectId: string) => EvidenceRecord[];
   reviewClassification: (id: string, status: 'CONFIRMED' | 'REJECTED') => void;
+  analyzeImpact: (assetId: string) => import('../types').ImpactAnalysis;
+  getPolicies: () => import('../types').Policy[];
+  evaluatePolicies: () => import('../types').PolicyEvaluation[];
   refresh: () => void;
 }
 
@@ -329,6 +349,20 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
     refresh();
   }, [services, refresh]);
 
+  const analyzeImpact = useCallback((assetId: string) => {
+    return services.impactAnalyzer.analyze(assetId);
+  }, [services]);
+
+  const getPolicies = useCallback(() => {
+    return services.policyEngine.getPolicies();
+  }, [services]);
+
+  const evaluatePolicies = useCallback(() => {
+    const evaluations = services.policyEngine.evaluateAll();
+    refresh();
+    return evaluations;
+  }, [services, refresh]);
+
   const value: CatalogContextValue = {
     services,
     assets,
@@ -352,6 +386,9 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
     getTrustScore,
     getEvidenceForSubject,
     reviewClassification,
+    analyzeImpact,
+    getPolicies,
+    evaluatePolicies,
     refresh,
   };
 

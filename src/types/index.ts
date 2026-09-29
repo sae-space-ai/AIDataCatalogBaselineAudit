@@ -24,7 +24,7 @@ export type SourceStatus = 'ACTIVE' | 'INACTIVE' | 'ERROR' | 'NOT_CONNECTED';
 
 export type ScanStatus = 'QUEUED' | 'RUNNING' | 'SUCCESS' | 'FAILED';
 
-export type RelationshipType = 'CONTAINS' | 'DERIVED_FROM' | 'DEPENDS_ON';
+export type RelationshipType = 'CONTAINS' | 'DERIVED_FROM' | 'DEPENDS_ON' | 'READS_FROM' | 'WRITES_TO' | 'TRANSFORMS';
 
 export type ClassificationType =
   | 'PII_EMAIL'
@@ -38,11 +38,13 @@ export type ClassificationType =
 
 export type ClassificationMethod = 'RULE' | 'ML_MODEL' | 'PATTERN_MATCH' | 'HUMAN';
 
-export type ReviewStatus = 'PENDING' | 'CONFIRMED' | 'REJECTED';
+export type ReviewStatus = 'PENDING' | 'CONFIRMED' | 'REJECTED' | 'SUGGESTED' | 'NEEDS_REVIEW';
 
-export type QualityRuleType = 'NULL_RATIO' | 'UNIQUENESS' | 'MIN_VALUE' | 'MAX_VALUE' | 'ROW_COUNT';
+export type QualityRuleType = 'NULL_RATIO' | 'UNIQUENESS' | 'MIN_VALUE' | 'MAX_VALUE' | 'ROW_COUNT' | 'COMPLETENESS' | 'CONSISTENCY' | 'FRESHNESS' | 'VALIDITY';
 
-export type QualityStatus = 'PASS' | 'WARNING' | 'FAIL';
+export type QualityStatus = 'PASS' | 'WARNING' | 'FAIL' | 'NOT_EVALUATED';
+
+export type QualityDimension = 'COMPLETENESS' | 'UNIQUENESS' | 'VALIDITY' | 'CONSISTENCY' | 'FRESHNESS';
 
 export type EvidenceType =
   | 'SOURCE_CREATED'
@@ -305,4 +307,72 @@ export interface SearchResult {
   total: number;
   page: number;
   pageSize: number;
+}
+
+// ---- POLICIES ----
+
+export type PolicyType = 'ACCESS' | 'CLASSIFICATION' | 'QUALITY' | 'LINEAGE' | 'RETENTION';
+
+export type PolicyStatus = 'ACTIVE' | 'INACTIVE' | 'DRAFT';
+
+export type PolicyEvaluationStatus = 'PASS' | 'WARN' | 'FAIL' | 'NOT_EVALUATED';
+
+export interface Policy {
+  id: string;
+  name: string;
+  description: string;
+  type: PolicyType;
+  status: PolicyStatus;
+  rules: PolicyRule[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PolicyRule {
+  id: string;
+  name: string;
+  description: string;
+  condition: string; // Human-readable condition description
+  action: string; // What happens when condition is met
+  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+}
+
+export interface PolicyEvaluation {
+  id: string;
+  policyId: string;
+  assetId: string;
+  status: PolicyEvaluationStatus;
+  violations: PolicyViolation[];
+  evaluatedAt: string;
+}
+
+export interface PolicyViolation {
+  ruleId: string;
+  ruleName: string;
+  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  message: string;
+  details?: string;
+}
+
+// ---- METADATA SOURCE ----
+
+export type MetadataSource = 'DISCOVERED' | 'INFERRED' | 'HUMAN_CONFIRMED' | 'SYSTEM';
+
+export interface MetadataEntry {
+  key: string;
+  value: unknown;
+  source: MetadataSource;
+  confidence?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ---- IMPACT ANALYSIS ----
+
+export interface ImpactAnalysis {
+  assetId: string;
+  upstreamCount: number;
+  downstreamCount: number;
+  potentiallyAffected: string[]; // Asset IDs
+  analysisDate: string;
 }
