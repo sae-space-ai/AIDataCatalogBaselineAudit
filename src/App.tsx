@@ -29,6 +29,10 @@ import { AIGovernanceDashboardPage } from './pages/ai-governance/DashboardPage';
 import { AIGovernanceTrainingDataPage } from './pages/ai-governance/TrainingDataPage';
 import { AIGovernanceRAGResourcesPage } from './pages/ai-governance/RAGResourcesPage';
 import { AIGovernanceDriftPage } from './pages/ai-governance/DriftPage';
+import { AIGovernanceUseCasesPage } from './pages/ai-governance/UseCasesPage';
+import { AIGovernanceModelsPage } from './pages/ai-governance/ModelsPage';
+import { AIGovernanceAuditorViewPage } from './pages/ai-governance/AuditorViewPage';
+import { AIGovernanceExportPage } from './pages/ai-governance/ExportPage';
 import { AgentRegistry } from './agents/registry';
 import { useState } from 'react';
 
@@ -66,9 +70,13 @@ function AppContent() {
             <Route path="/governance/timeline" element={<GovernanceTimelinePage />} />
             <Route path="/governance/export" element={<ComplianceExportPage />} />
             <Route path="/ai-governance" element={<AIGovernanceDashboardPage />} />
+            <Route path="/ai-governance/use-cases" element={<AIGovernanceUseCasesPage />} />
             <Route path="/ai-governance/training-data" element={<AIGovernanceTrainingDataPage />} />
+            <Route path="/ai-governance/models" element={<AIGovernanceModelsPage />} />
             <Route path="/ai-governance/rag-resources" element={<AIGovernanceRAGResourcesPage />} />
             <Route path="/ai-governance/drift" element={<AIGovernanceDriftPage />} />
+            <Route path="/ai-governance/auditor" element={<AIGovernanceAuditorViewPage />} />
+            <Route path="/ai-governance/export" element={<AIGovernanceExportPage />} />
           </Routes>
         </Layout>
         </AIGovernanceProvider>
