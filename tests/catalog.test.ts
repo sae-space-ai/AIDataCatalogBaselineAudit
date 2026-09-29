@@ -536,11 +536,15 @@ describe('Scan Pipeline', () => {
     const trustScoreService = new TrustScoreService(
       assetRepo, classificationRepo, qualityRepo, trustScoreRepo, evidenceRepo
     );
+    const sensitivityPropagationService = new (require('../src/services/sensitivity-propagation').SensitivityPropagationService)(
+      assetRepo, classificationRepo, evidenceRepo, auditRepo
+    );
 
     scanEngine = new ScanEngine(
       sourceRepo, scanRepo, assetRepo, assetVersionRepo, relationshipRepo,
       evidenceRepo, auditRepo, connectorRegistry,
-      classificationEngine, qualityEngine, trustScoreService
+      classificationEngine, qualityEngine, trustScoreService,
+      classificationRepo, sensitivityPropagationService
     );
 
     // Create a demo source

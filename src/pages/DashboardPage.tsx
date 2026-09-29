@@ -8,7 +8,7 @@ import { timeAgo } from '../lib/utils';
 import { Link } from 'react-router-dom';
 
 export function DashboardPage() {
-  const { assets, sources, scanRuns, classifications, qualityResults, evidence, auditEvents, relationships } = useCatalog();
+  const { assets, sources, scanRuns, classifications, qualityResults, evidence, auditEvents, relationships, humanReviewTasks } = useCatalog();
 
   const totalAssets = assets.length;
   const totalSources = sources.length;
@@ -19,6 +19,7 @@ export function DashboardPage() {
       .filter(c => c.reviewStatus === 'SUGGESTED' || c.reviewStatus === 'PENDING' || c.reviewStatus === 'NEEDS_REVIEW')
       .map(c => c.assetId)
   ).size;
+  const openReviewTasks = humanReviewTasks.filter(t => t.status === 'OPEN' || t.status === 'ASSIGNED').length;
   const qualityIssues = qualityResults.filter(r => r.status === 'FAIL' || r.status === 'WARN' || r.status === 'WARNING').length;
   const assetsWithLineage = new Set(
     relationships.map(r => r.sourceAssetId).concat(relationships.map(r => r.targetAssetId))
@@ -37,9 +38,9 @@ export function DashboardPage() {
         <StatCard label="Latest Scan" value={latestScan ? timeAgo(latestScan.startedAt) : '—'} />
         <StatCard label="Classified" value={classifiedAssets} />
         <StatCard label="Needs Review" value={assetsNeedingReview} />
+        <StatCard label="Open Tasks" value={openReviewTasks} />
         <StatCard label="Quality Issues" value={qualityIssues} />
         <StatCard label="With Lineage" value={assetsWithLineage} />
-        <StatCard label="Evidence" value={totalEvidence} />
       </div>
 
       {/* Recent Activity */}

@@ -8,6 +8,7 @@ import type {
   AssetRepository,
   AssetVersionRepository,
   AuditRepository,
+  ClassificationRepository,
   ConnectorRegistry,
   EvidenceRepository,
   RelationshipRepository,
@@ -17,6 +18,8 @@ import type {
 import type { ClassificationEngine } from './classification-engine';
 import type { QualityEngine } from './quality-engine';
 import type { TrustScoreService } from './trust-score';
+import type { HumanReviewService } from './human-review-service';
+import type { SensitivityPropagationService } from './sensitivity-propagation';
 import type {
   Asset,
   AssetRelationship,
@@ -31,9 +34,14 @@ import { generateId } from '../lib/utils';
 export interface ScanResult {
   scanRun: ScanRun;
   assetsCreated: number;
+  assetsUpdated: number;
+  assetsExisting: number;
   relationshipsCreated: number;
+  relationshipsExisting: number;
   classificationsCreated: number;
+  classificationsExisting: number;
   qualityChecksCreated: number;
+  humanReviewTasksCreated: number;
   errors: string[];
 }
 
@@ -49,7 +57,10 @@ export class ScanEngine {
     private connectorRegistry: ConnectorRegistry,
     private classificationEngine: ClassificationEngine,
     private qualityEngine: QualityEngine,
-    private trustScoreService: TrustScoreService
+    private trustScoreService: TrustScoreService,
+    private classificationRepo: ClassificationRepository,
+    private sensitivityPropagationService: SensitivityPropagationService,
+    private humanReviewService?: HumanReviewService
   ) {}
 
   async executeScan(sourceId: string): Promise<ScanResult> {
@@ -110,6 +121,8 @@ export class ScanEngine {
 
       // 5. Create/update assets
       const createdAssets: Asset[] = [];
+      const updatedAssets: Asset[] = [];
+      const existingAssets: Asset[] = [];
       const qualifiedNameToId = new Map<string, string>();
 
       for (const discovered of discoveryResult.assets) {
@@ -119,25 +132,35 @@ export class ScanEngine {
         );
 
         if (existing) {
-          // Update existing asset
-          this.assetRepo.update(existing.id, {
-            metadata: discovered.metadata,
-            description: discovered.description,
-            updatedAt: new Date().toISOString(),
-          });
-          qualifiedNameToId.set(discovered.qualifiedName, existing.id);
+          // Check if anything actually changed
+          const metadataChanged = JSON.stringify(existing.metadata) !== JSON.stringify(discovered.metadata);
+          const descriptionChanged = existing.description !== discovered.description;
+          
+          if (metadataChanged || descriptionChanged) {
+            // Update existing asset
+            this.assetRepo.update(existing.id, {
+              metadata: discovered.metadata,
+              description: discovered.description,
+              updatedAt: new Date().toISOString(),
+            });
+            updatedAssets.push(existing);
 
-          // Create version
-          const updatedAsset = this.assetRepo.getById(existing.id)!;
-          this.assetVersionRepo.save({
-            id: generateId(),
-            assetId: existing.id,
-            version: this.getNextVersion(existing.id),
-            snapshot: updatedAsset,
-            changedAt: new Date().toISOString(),
-            changedBy: 'system:scan-engine',
-            reason: 'Scan update',
-          });
+            // Create version
+            const updatedAsset = this.assetRepo.getById(existing.id)!;
+            this.assetVersionRepo.save({
+              id: generateId(),
+              assetId: existing.id,
+              version: this.getNextVersion(existing.id),
+              snapshot: updatedAsset,
+              changedAt: new Date().toISOString(),
+              changedBy: 'system:scan-engine',
+              reason: 'Scan update',
+            });
+          } else {
+            // No changes - just track as existing
+            existingAssets.push(existing);
+          }
+          qualifiedNameToId.set(discovered.qualifiedName, existing.id);
         } else {
           // Create new asset
           const asset: Asset = {
@@ -185,7 +208,8 @@ export class ScanEngine {
       }
 
       // 6. Create relationships
-      const relationships: AssetRelationship[] = [];
+      const newRelationships: AssetRelationship[] = [];
+      let existingRelationshipCount = 0;
       for (const rel of discoveryResult.relationships) {
         const sourceAssetId = qualifiedNameToId.get(rel.sourceQualifiedName);
         const targetAssetId = qualifiedNameToId.get(rel.targetQualifiedName);
@@ -207,18 +231,43 @@ export class ScanEngine {
               type: rel.type,
               createdAt: new Date().toISOString(),
             };
-            relationships.push(relationship);
+            newRelationships.push(relationship);
+          } else {
+            existingRelationshipCount++;
           }
         }
       }
 
-      if (relationships.length > 0) {
-        this.relationshipRepo.saveMany(relationships);
+      if (newRelationships.length > 0) {
+        this.relationshipRepo.saveMany(newRelationships);
       }
 
       // 7. Classification
       const allSourceAssets = this.assetRepo.getBySourceId(sourceId);
-      const classifications = this.classificationEngine.classifyAll(allSourceAssets);
+      const newClassifications = this.classificationEngine.classifyAll(allSourceAssets);
+      
+      // Track existing classifications
+      const existingClassificationCount = this.classificationRepo.getAll().length - newClassifications.length;
+      
+      // 7.5. Propagate sensitivity from classification
+      this.sensitivityPropagationService.propagateAll();
+      
+      // Create HumanReviewTask for SUGGESTED classifications
+      let humanReviewTasksCreated = 0;
+      if (this.humanReviewService) {
+        for (const classification of newClassifications) {
+          if (classification.reviewStatus === 'SUGGESTED') {
+            this.humanReviewService.createTask(
+              'CLASSIFICATION_REVIEW',
+              'Classification',
+              classification.id,
+              `Classification ${classification.classificationType} with confidence ${classification.confidence} requires human review`,
+              classification.confidence < 0.7 ? 'HIGH' : 'MEDIUM'
+            );
+            humanReviewTasksCreated++;
+          }
+        }
+      }
 
       // 8. Quality checks
       const qualityResults = this.qualityEngine.checkAll(allSourceAssets);
@@ -251,9 +300,14 @@ export class ScanEngine {
         source: 'ScanEngine.executeScan',
         metadata: {
           assetsCreated: createdAssets.length,
-          relationshipsCreated: relationships.length,
-          classificationsCreated: classifications.length,
+          assetsUpdated: updatedAssets.length,
+          assetsExisting: existingAssets.length,
+          relationshipsCreated: newRelationships.length,
+          relationshipsExisting: existingRelationshipCount,
+          classificationsCreated: newClassifications.length,
+          classificationsExisting: existingClassificationCount,
           qualityChecksCreated: qualityResults.length,
+          humanReviewTasksCreated,
         },
       });
 
@@ -264,15 +318,26 @@ export class ScanEngine {
         resourceType: 'DataSource',
         resourceId: sourceId,
         timestamp: new Date().toISOString(),
-        details: { scanId: scanRun.id, status: 'SUCCESS' },
+        details: { 
+          scanId: scanRun.id, 
+          status: 'SUCCESS',
+          assetsCreated: createdAssets.length,
+          assetsUpdated: updatedAssets.length,
+          assetsExisting: existingAssets.length,
+        },
       });
 
       return {
         scanRun: completedScan!,
         assetsCreated: createdAssets.length,
-        relationshipsCreated: relationships.length,
-        classificationsCreated: classifications.length,
+        assetsUpdated: updatedAssets.length,
+        assetsExisting: existingAssets.length,
+        relationshipsCreated: newRelationships.length,
+        relationshipsExisting: existingRelationshipCount,
+        classificationsCreated: newClassifications.length,
+        classificationsExisting: existingClassificationCount,
         qualityChecksCreated: qualityResults.length,
+        humanReviewTasksCreated,
         errors,
       };
     } catch (error) {
@@ -309,9 +374,14 @@ export class ScanEngine {
       return {
         scanRun: this.scanRepo.getById(scanRun.id)!,
         assetsCreated: 0,
+        assetsUpdated: 0,
+        assetsExisting: 0,
         relationshipsCreated: 0,
+        relationshipsExisting: 0,
         classificationsCreated: 0,
+        classificationsExisting: 0,
         qualityChecksCreated: 0,
+        humanReviewTasksCreated: 0,
         errors,
       };
     }

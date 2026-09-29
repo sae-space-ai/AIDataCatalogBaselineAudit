@@ -9,14 +9,13 @@ import { Card, Badge, Button, EmptyState } from '../../components/ui';
 import type { HumanReviewTask } from '../../agents/types';
 
 export function GovernanceReviewsPage() {
-  const { services } = useCatalog();
+  const { services, humanReviewTasks } = useCatalog();
   const [selectedReview, setSelectedReview] = useState<HumanReviewTask | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [priorityFilter, setPriorityFilter] = useState<string>('');
 
   // Get all review tasks from the catalog context
-  // Note: In a real implementation, this would come from a dedicated review service
-  const allReviews: HumanReviewTask[] = []; // Placeholder - would be populated from actual review service
+  const allReviews: HumanReviewTask[] = humanReviewTasks;
 
   const filteredReviews = allReviews.filter(r => {
     if (statusFilter && r.status !== statusFilter) return false;
@@ -34,20 +33,10 @@ export function GovernanceReviewsPage() {
       return;
     }
 
-    // Generate AuditEvent and EvidenceRecord
-    services.auditRepo.save({
-      id: crypto.randomUUID(),
-      actor: 'demo-reviewer',
-      action: 'REVIEW',
-      resourceType: 'HumanReviewTask',
-      resourceId: taskId,
-      timestamp: new Date().toISOString(),
-      details: { action },
-    });
-
-    services.evidenceRepo.save({
-      id: crypto.randomUUID(),
-      type: 'CLASSIFICATION_REVIEWED',
+    // Use the context method to resolve the task
+    resolveHumanReviewTask(taskId, action, 'demo-reviewer');
+    setSelectedReview(null);
+  };
       subjectType: 'HumanReviewTask',
       subjectId: taskId,
       actor: 'demo-reviewer',

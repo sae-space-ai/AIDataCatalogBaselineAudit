@@ -38,6 +38,8 @@ import { SearchService } from '../services/search-service';
 import { ScanEngine, ScanResult } from '../services/scan-engine';
 import { ImpactAnalyzer } from '../services/impact-analyzer';
 import { PolicyEngine } from '../services/policy-engine';
+import { HumanReviewService } from '../services/human-review-service';
+import { SensitivityPropagationService } from '../services/sensitivity-propagation';
 import { getConfig, type ApplicationMode } from './config';
 import type {
   Asset,
@@ -79,6 +81,7 @@ interface ServiceContainer {
   scanEngine: ScanEngine;
   impactAnalyzer: ImpactAnalyzer;
   policyEngine: PolicyEngine;
+  humanReviewService: HumanReviewService;
 }
 
 function createServiceContainer(): ServiceContainer {
@@ -132,6 +135,29 @@ function createServiceContainer(): ServiceContainer {
     trustScoreRepo
   );
 
+  const impactAnalyzer = new ImpactAnalyzer(relationshipRepo, assetRepo);
+
+  const policyEngine = new PolicyEngine(
+    assetRepo,
+    classificationRepo,
+    qualityRepo,
+    relationshipRepo,
+    evidenceRepo,
+    auditRepo
+  );
+
+  const humanReviewService = new HumanReviewService(
+    evidenceRepo,
+    auditRepo
+  );
+
+  const sensitivityPropagationService = new SensitivityPropagationService(
+    assetRepo,
+    classificationRepo,
+    evidenceRepo,
+    auditRepo
+  );
+
   const scanEngine = new ScanEngine(
     sourceRepo,
     scanRepo,
@@ -143,18 +169,10 @@ function createServiceContainer(): ServiceContainer {
     connectorRegistry,
     classificationEngine,
     qualityEngine,
-    trustScoreService
-  );
-
-  const impactAnalyzer = new ImpactAnalyzer(relationshipRepo, assetRepo);
-
-  const policyEngine = new PolicyEngine(
-    assetRepo,
+    trustScoreService,
     classificationRepo,
-    qualityRepo,
-    relationshipRepo,
-    evidenceRepo,
-    auditRepo
+    sensitivityPropagationService,
+    humanReviewService
   );
 
   return {
@@ -176,6 +194,7 @@ function createServiceContainer(): ServiceContainer {
     scanEngine,
     impactAnalyzer,
     policyEngine,
+    humanReviewService,
   };
 }
 
@@ -201,6 +220,7 @@ interface CatalogContextValue {
   evidence: EvidenceRecord[];
   auditEvents: AuditEvent[];
   trustScores: TrustScore[];
+  humanReviewTasks: import('../agents/types').HumanReviewTask[];
 
   // Actions
   createDemoSource: (name: string, description?: string) => DataSource;
@@ -218,6 +238,14 @@ interface CatalogContextValue {
   analyzeImpact: (assetId: string) => import('../types').ImpactAnalysis;
   getPolicies: () => import('../types').Policy[];
   evaluatePolicies: () => import('../types').PolicyEvaluation[];
+  createHumanReviewTask: (
+    type: string,
+    subjectType: string,
+    subjectId: string,
+    reason: string,
+    priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
+  ) => import('../agents/types').HumanReviewTask;
+  resolveHumanReviewTask: (id: string, decision: string, resolvedBy: string) => void;
   refresh: () => void;
 }
 
@@ -243,6 +271,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
   const evidence = useMemo(() => services.evidenceRepo.getAll(), [services, version]);
   const auditEvents = useMemo(() => services.auditRepo.getAll(), [services, version]);
   const trustScores = useMemo(() => services.trustScoreRepo.getAll(), [services, version]);
+  const humanReviewTasks = useMemo(() => services.humanReviewService.listTasks(), [services, version]);
 
   // Actions
   const createDemoSource = useCallback((name: string, description?: string): DataSource => {
@@ -374,6 +403,23 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
     return evaluations;
   }, [services, refresh]);
 
+  const createHumanReviewTask = useCallback((
+    type: string,
+    subjectType: string,
+    subjectId: string,
+    reason: string,
+    priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' = 'MEDIUM'
+  ) => {
+    const task = services.humanReviewService.createTask(type, subjectType, subjectId, reason, priority);
+    refresh();
+    return task;
+  }, [services, refresh]);
+
+  const resolveHumanReviewTask = useCallback((id: string, decision: string, resolvedBy: string) => {
+    services.humanReviewService.resolveTask(id, decision, resolvedBy);
+    refresh();
+  }, [services, refresh]);
+
   const config = getConfig();
   
   const value: CatalogContextValue = {
@@ -391,6 +437,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
     evidence,
     auditEvents,
     trustScores,
+    humanReviewTasks,
     createDemoSource,
     testConnection,
     runScan,
@@ -406,6 +453,8 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
     analyzeImpact,
     getPolicies,
     evaluatePolicies,
+    createHumanReviewTask,
+    resolveHumanReviewTask,
     refresh,
   };
 
