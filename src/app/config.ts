@@ -17,6 +17,17 @@
 export type ApplicationMode = 'DEMO' | 'REAL';
 
 /**
+ * OperationalState provides granular visibility into the application's
+ * operational status. This is separate from ApplicationMode.
+ * 
+ * DEMO: Application is using demo infrastructure.
+ * REAL_PENDING: API configured but backend/database not yet verified.
+ * REAL: Backend available and PostgreSQL connected.
+ * DEGRADED: REAL requested but one or more critical components failed.
+ */
+export type OperationalState = 'DEMO' | 'REAL_PENDING' | 'REAL' | 'DEGRADED';
+
+/**
  * PersistenceMode describes the current persistence backend.
  */
 export type PersistenceMode = 'IN_MEMORY' | 'POSTGRESQL' | 'NOT_CONFIGURED';
@@ -27,13 +38,20 @@ export type PersistenceMode = 'IN_MEMORY' | 'POSTGRESQL' | 'NOT_CONFIGURED';
 export type DatabaseStatus = 'CONNECTED' | 'NOT_CONFIGURED' | 'ERROR' | 'NOT_AVAILABLE';
 
 /**
+ * ApiStatus describes the availability of the backend API.
+ */
+export type ApiStatus = 'READY' | 'NOT_CONFIGURED' | 'UNREACHABLE' | 'ERROR';
+
+/**
  * ApplicationConfig is the canonical source of operational mode.
  * It is determined by infrastructure availability.
  */
 export interface ApplicationConfig {
   mode: ApplicationMode;
+  operationalState: OperationalState;
   persistence: PersistenceMode;
   databaseStatus: DatabaseStatus;
+  apiStatus: ApiStatus;
   apiBaseUrl?: string;
   features: {
     humanReview: boolean;
@@ -49,8 +67,15 @@ export interface ApplicationConfig {
  * IMPORTANT: This function NEVER reads secrets from the client.
  * It only checks for the presence of configuration flags.
  * 
- * In DEMO mode (default), the application uses InMemoryRepository.
- * In REAL mode, it would use API repositories pointing to a server.
+ * CRITICAL: The presence of VITE_API_BASE_URL does NOT automatically
+ * activate REAL mode. It only indicates that an API endpoint is configured.
+ * 
+ * REAL mode is activated ONLY after the backend health check confirms:
+ * - API is reachable
+ * - Database is configured
+ * - Database is connected
+ * 
+ * Until then, the application remains in DEMO mode or REAL_PENDING state.
  */
 export function determineApplicationConfig(): ApplicationConfig {
   // In the current Vite SPA deployment, we cannot access server-side env vars.
@@ -66,21 +91,28 @@ export function determineApplicationConfig(): ApplicationConfig {
   
   const hasApi = Boolean(apiBaseUrl);
   
-  const mode: ApplicationMode = hasApi ? 'REAL' : 'DEMO';
-  const persistence: PersistenceMode = hasApi ? 'POSTGRESQL' : 'IN_MEMORY';
-  const databaseStatus: DatabaseStatus = hasApi ? 'NOT_AVAILABLE' : 'NOT_CONFIGURED';
+  // IMPORTANT: Do NOT activate REAL mode automatically.
+  // Start in DEMO mode. The operational state will be updated
+  // after verifying the backend health endpoint.
+  const mode: ApplicationMode = 'DEMO';
+  const operationalState: OperationalState = hasApi ? 'REAL_PENDING' : 'DEMO';
+  const persistence: PersistenceMode = 'IN_MEMORY';
+  const databaseStatus: DatabaseStatus = 'NOT_CONFIGURED';
+  const apiStatus: ApiStatus = hasApi ? 'NOT_CONFIGURED' : 'NOT_CONFIGURED';
   
   return {
     mode,
+    operationalState,
     persistence,
     databaseStatus,
+    apiStatus,
     apiBaseUrl,
     features: {
       // Human review requires authenticated identity
       // In DEMO mode, we use demo-reviewer as placeholder
       // In REAL mode without auth, human review is disabled
-      humanReview: mode === 'DEMO',
-      realScan: hasApi,
+      humanReview: true, // Enabled in DEMO, will be disabled in REAL without auth
+      realScan: false, // Disabled until REAL is verified
       realClassification: true, // Rule-based works in both modes
       realQuality: true, // Deterministic checks work in both modes
     },
@@ -119,4 +151,75 @@ export function isDemoMode(): boolean {
  */
 export function isRealMode(): boolean {
   return getConfig().mode === 'REAL';
+}
+
+/**
+ * Update operational state after verifying backend health.
+ * 
+ * This function should be called after successfully checking /api/health.
+ * It updates the operational state based on the health check response.
+ * 
+ * @param healthResponse - Response from /api/health endpoint
+ */
+export function updateOperationalState(healthResponse: {
+  mode: 'DEMO' | 'REAL';
+  persistence: 'IN_MEMORY' | 'POSTGRESQL' | 'NOT_CONFIGURED';
+  database: 'CONNECTED' | 'NOT_CONFIGURED' | 'ERROR' | 'NOT_AVAILABLE';
+  api: 'READY' | 'NOT_CONFIGURED' | 'UNREACHABLE' | 'ERROR';
+}): void {
+  const config = getConfig();
+  
+  // Update operational state based on health check
+  let operationalState: OperationalState;
+  let mode: ApplicationMode;
+  
+  if (healthResponse.mode === 'REAL' && 
+      healthResponse.database === 'CONNECTED' && 
+      healthResponse.api === 'READY') {
+    operationalState = 'REAL';
+    mode = 'REAL';
+  } else if (healthResponse.mode === 'REAL' && 
+             (healthResponse.database !== 'CONNECTED' || healthResponse.api !== 'READY')) {
+    operationalState = 'DEGRADED';
+    mode = 'REAL';
+  } else {
+    operationalState = 'DEMO';
+    mode = 'DEMO';
+  }
+  
+  // Update the global config
+  _config = {
+    ...config,
+    mode,
+    operationalState,
+    persistence: healthResponse.persistence,
+    databaseStatus: healthResponse.database,
+    apiStatus: healthResponse.api,
+    features: {
+      ...config.features,
+      humanReview: mode === 'DEMO', // Only enable in DEMO without auth
+      realScan: mode === 'REAL' && healthResponse.database === 'CONNECTED',
+    },
+  };
+}
+
+/**
+ * Get the current operational state.
+ */
+export function getOperationalState(): OperationalState {
+  return getConfig().operationalState;
+}
+
+/**
+ * Check if the application is in REAL_PENDING state.
+ */
+export function isRealPending(): boolean {
+  return getConfig().operationalState === 'REAL_PENDING';
+}
+
+/**
+ * Check if the application is in DEGRADED state.
+ */
+export function isDegraded(): boolean {
+  return getConfig().operationalState === 'DEGRADED';
 }

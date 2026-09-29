@@ -187,6 +187,7 @@ interface CatalogContextValue {
   
   // Application mode (DEMO or REAL)
   mode: ApplicationMode;
+  operationalState: 'DEMO' | 'REAL_PENDING' | 'REAL' | 'DEGRADED';
   isDemoMode: boolean;
   isRealMode: boolean;
 
@@ -378,6 +379,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
   const value: CatalogContextValue = {
     services,
     mode: config.mode,
+    operationalState: config.operationalState,
     isDemoMode: config.mode === 'DEMO',
     isRealMode: config.mode === 'REAL',
     assets,

@@ -83,19 +83,36 @@ interface LayoutProps {
 }
 
 function ModeIndicator() {
-  const { isDemoMode } = useCatalog();
+  const { operationalState } = useCatalog();
   
-  if (isDemoMode) {
+  if (operationalState === 'REAL') {
     return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">
-        DEMO
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
+        LIVE
       </span>
     );
   }
   
+  if (operationalState === 'REAL_PENDING') {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300">
+        PENDING
+      </span>
+    );
+  }
+  
+  if (operationalState === 'DEGRADED') {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300">
+        DEGRADED
+      </span>
+    );
+  }
+  
+  // Default: DEMO
   return (
-    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
-      LIVE
+    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">
+      DEMO
     </span>
   );
 }

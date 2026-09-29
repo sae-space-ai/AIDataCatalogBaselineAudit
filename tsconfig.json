@@ -10,7 +10,14 @@
     "esModuleInterop": true,
     "isolatedModules": true,
     "noEmit": true,
-    "allowImportingTsExtensions": true
+    "allowImportingTsExtensions": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@server/*": ["server/*"],
+      "@api/*": ["api/*"]
+    },
+    "types": ["node"]
   },
-  "include": ["src"]
+  "include": ["src", "server", "api", "tests"]
 }
