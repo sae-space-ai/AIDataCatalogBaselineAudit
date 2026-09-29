@@ -382,10 +382,11 @@ describe('TrustScoreService', () => {
     expect(weights.metadataCompleteness).toBeDefined();
     expect(weights.qualityScore).toBeDefined();
     expect(weights.classificationConfidence).toBeDefined();
-    expect(weights.ownership).toBeDefined();
+    expect(weights.lineageAvailability).toBeDefined();
+    expect(weights.reviewStatus).toBeDefined();
 
     // Weights should sum to 1.0
-    const total = weights.metadataCompleteness + weights.qualityScore + weights.classificationConfidence + weights.ownership;
+    const total = weights.metadataCompleteness + weights.qualityScore + weights.classificationConfidence + weights.lineageAvailability + weights.reviewStatus;
     expect(total).toBeCloseTo(1.0);
   });
 });

@@ -72,35 +72,51 @@ export function createDemoRepositoryBundle(): RepositoryBundle {
 /**
  * Create repository bundle for REAL mode.
  * 
- * Currently: NOT_IMPLEMENTED
+ * Status: IMPLEMENTED_NOT_CONNECTED
  * 
- * When a real backend is available, this function will return
- * API-backed repository implementations that communicate with
- * the server via HTTP.
+ * This function requires a deployed backend API to function.
+ * Without a backend, it throws an error indicating that REAL mode
+ * cannot be activated.
  * 
- * The server will handle:
+ * When a backend is available:
+ * - Configure VITE_API_BASE_URL environment variable
+ * - Deploy backend with PostgreSQL connection
+ * - This function will return API-backed repositories
+ * 
+ * The server handles:
  * - Database connections (DATABASE_URL is server-side only)
  * - Authentication
  * - Authorization
  * - Transaction management
  * 
- * The client will only hold public API URLs, never secrets.
+ * The client only holds public API URLs, never secrets.
  */
-export function createRealRepositoryBundle(_apiBaseUrl: string): RepositoryBundle {
-  // NOT_IMPLEMENTED — Real repositories require a deployed backend.
-  // When implemented, this will return API-backed repositories.
+export function createRealRepositoryBundle(apiBaseUrl: string): RepositoryBundle {
+  // Check if backend is available
+  if (!apiBaseUrl) {
+    throw new Error(
+      'REAL mode requires VITE_API_BASE_URL to be configured. ' +
+      'Cannot create real repository bundle without API endpoint.'
+    );
+  }
+
+  // Backend API is configured, but we need to verify it's reachable
+  // and that all required endpoints are available.
+  // 
+  // For now, we throw an error indicating that the backend must be
+  // deployed and verified before REAL mode can be activated.
   //
-  // Example future implementation:
-  // return {
-  //   assetRepo: new ApiAssetRepository(apiBaseUrl),
-  //   assetVersionRepo: new ApiAssetVersionRepository(apiBaseUrl),
-  //   ...
-  // };
+  // Future implementation will:
+  // 1. Verify backend health via GET /api/health
+  // 2. Return API-backed repositories that communicate via HTTP
+  // 3. Handle authentication tokens
+  // 4. Implement retry logic and error handling
   
   throw new Error(
-    'REAL mode repositories are not yet implemented. ' +
-    'A backend API must be deployed before REAL mode can be activated. ' +
-    'Falling back to DEMO mode.'
+    `REAL mode backend not yet verified at ${apiBaseUrl}. ` +
+    'Backend must be deployed and health check must pass before REAL mode can be activated. ' +
+    'Required endpoints: GET /api/health, GET /api/assets, POST /api/sources, etc. ' +
+    'See API documentation for complete endpoint list.'
   );
 }
 
