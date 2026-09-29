@@ -17,6 +17,13 @@ import { EvidencePage } from './pages/EvidencePage';
 import { AuditPage } from './pages/AuditPage';
 import { SolutionsPage } from './pages/SolutionsPage';
 import { GovernanceDashboardPage } from './pages/GovernanceDashboardPage';
+import { GovernancePoliciesPage } from './pages/governance/PoliciesPage';
+import { GovernanceControlsPage } from './pages/governance/ControlsPage';
+import { GovernanceAssessmentsPage } from './pages/governance/AssessmentsPage';
+import { GovernanceReviewsPage } from './pages/governance/ReviewsPage';
+import { GovernanceAuditorViewPage } from './pages/governance/AuditorViewPage';
+import { GovernanceTimelinePage } from './pages/governance/TimelinePage';
+import { ComplianceExportPage } from './pages/governance/ComplianceExportPage';
 import { AgentRegistry } from './agents/registry';
 import { useState } from 'react';
 
@@ -45,6 +52,13 @@ function AppContent() {
             <Route path="/audit" element={<AuditPage />} />
             <Route path="/solutions" element={<SolutionsPage />} />
             <Route path="/governance" element={<GovernanceDashboardPage />} />
+            <Route path="/governance/policies" element={<GovernancePoliciesPage />} />
+            <Route path="/governance/controls" element={<GovernanceControlsPage />} />
+            <Route path="/governance/assessments" element={<GovernanceAssessmentsPage />} />
+            <Route path="/governance/reviews" element={<GovernanceReviewsPage />} />
+            <Route path="/governance/auditor" element={<GovernanceAuditorViewPage />} />
+            <Route path="/governance/timeline" element={<GovernanceTimelinePage />} />
+            <Route path="/governance/export" element={<ComplianceExportPage />} />
           </Routes>
         </Layout>
       </GovernanceProvider>

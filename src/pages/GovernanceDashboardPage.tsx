@@ -11,6 +11,9 @@ export function GovernanceDashboardPage() {
   const activePolicies = policyService.listPolicies('ACTIVE').length;
   const totalControls = controlService.listControls().length;
   const highRisks = riskService.getHighRisks().length;
+  const totalAssessments = complianceService.listAssessments().length;
+  const compliantAssessments = complianceService.listAssessments('COMPLIANT').length;
+  const nonCompliantAssessments = complianceService.listAssessments('NON_COMPLIANT').length;
 
   return (
     <div className="space-y-6">
@@ -22,11 +25,13 @@ export function GovernanceDashboardPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <StatCard label="Active Policies" value={activePolicies} />
         <StatCard label="Controls" value={totalControls} />
         <StatCard label="High Risks" value={highRisks} />
-        <StatCard label="Open Reviews" value={0} />
+        <StatCard label="Assessments" value={totalAssessments} />
+        <StatCard label="Compliant" value={compliantAssessments} />
+        <StatCard label="Non-Compliant" value={nonCompliantAssessments} />
       </div>
 
       {/* Policies */}
