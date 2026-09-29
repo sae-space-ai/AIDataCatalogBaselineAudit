@@ -58,7 +58,7 @@ export class QualityEngine {
       const nullRule = COLUMN_QUALITY_RULES.find(r => r.ruleType === 'NULL_RATIO')!;
       let nullStatus: QualityStatus = 'PASS';
       if (nullRatio > nullRule.threshold * 2) nullStatus = 'FAIL';
-      else if (nullRatio > nullRule.threshold) nullStatus = 'WARNING';
+      else if (nullRatio > nullRule.threshold) nullStatus = 'WARN';
 
       const nullResult: QualityResult = {
         id: generateId(),
@@ -79,7 +79,7 @@ export class QualityEngine {
         const uniqueRule = COLUMN_QUALITY_RULES.find(r => r.ruleType === 'UNIQUENESS')!;
         let uniqueStatus: QualityStatus = 'PASS';
         if (uniqueness < uniqueRule.threshold * 0.8) uniqueStatus = 'FAIL';
-        else if (uniqueness < uniqueRule.threshold) uniqueStatus = 'WARNING';
+        else if (uniqueness < uniqueRule.threshold) uniqueStatus = 'WARN';
 
         const uniqueResult: QualityResult = {
           id: generateId(),
@@ -164,7 +164,8 @@ export class QualityEngine {
 
     const statusScores: Record<QualityStatus, number> = {
       PASS: 1.0,
-      WARNING: 0.6,
+      WARN: 0.6,
+      WARNING: 0.6, // Deprecated, same as WARN
       FAIL: 0.0,
       NOT_EVALUATED: 0.0,
     };

@@ -113,7 +113,7 @@ describe('ClassificationEngine', () => {
     expect(result!.classificationType).toBe('PII_EMAIL');
     expect(result!.confidence).toBeGreaterThan(0.9);
     expect(result!.method).toBe('RULE');
-    expect(result!.reviewStatus).toBe('PENDING');
+    expect(result!.reviewStatus).toBe('SUGGESTED');
   });
 
   it('should classify phone column as PII_PHONE', () => {
@@ -842,7 +842,7 @@ describe('PolicyEngine', () => {
       confidence: 0.95,
       method: 'RULE',
       reason: 'Email pattern',
-      reviewStatus: 'PENDING',
+      reviewStatus: 'SUGGESTED',
       createdAt: new Date().toISOString(),
     });
 

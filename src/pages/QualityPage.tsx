@@ -12,7 +12,7 @@ export function QualityPage() {
 
   const totalChecks = qualityResults.length;
   const passed = qualityResults.filter(r => r.status === 'PASS').length;
-  const warnings = qualityResults.filter(r => r.status === 'WARNING').length;
+  const warnings = qualityResults.filter(r => r.status === 'WARN' || r.status === 'WARNING').length;
   const failures = qualityResults.filter(r => r.status === 'FAIL').length;
   const passRate = totalChecks > 0 ? Math.round((passed / totalChecks) * 100) : 0;
 
@@ -81,7 +81,7 @@ export function QualityPage() {
                     <td className="px-4 py-2">
                       <Badge variant={
                         result.status === 'PASS' ? 'success' :
-                        result.status === 'WARNING' ? 'warning' : 'danger'
+                        (result.status === 'WARN' || result.status === 'WARNING') ? 'warning' : 'danger'
                       }>
                         {result.status}
                       </Badge>
@@ -106,7 +106,7 @@ export function QualityPage() {
               .map(result => (
                 <div key={result.id} className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-800 last:border-0">
                   <div className="flex items-center gap-2">
-                    <Badge variant={result.status === 'WARNING' ? 'warning' : 'danger'}>
+                    <Badge variant={(result.status === 'WARN' || result.status === 'WARNING') ? 'warning' : 'danger'}>
                       {result.status}
                     </Badge>
                     <span className="text-sm text-gray-700 dark:text-gray-300">

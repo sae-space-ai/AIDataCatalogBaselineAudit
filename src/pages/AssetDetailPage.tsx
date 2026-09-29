@@ -303,7 +303,7 @@ function QualityTab({ results }: { results: QualityResult[] }) {
               <span className="text-xs text-gray-400">
                 Value: {result.measuredValue} / Threshold: {result.threshold}
               </span>
-              <Badge variant={result.status === 'PASS' ? 'success' : result.status === 'WARNING' ? 'warning' : 'danger'}>
+              <Badge variant={result.status === 'PASS' ? 'success' : (result.status === 'WARN' || result.status === 'WARNING') ? 'warning' : 'danger'}>
                 {result.status}
               </Badge>
             </div>

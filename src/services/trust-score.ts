@@ -6,6 +6,7 @@ import type {
   AssetRepository,
   ClassificationRepository,
   QualityRepository,
+  RelationshipRepository,
   TrustScoreRepository,
   EvidenceRepository,
 } from '../domain/contracts';
@@ -16,14 +17,16 @@ interface TrustScoreWeights {
   metadataCompleteness: number;
   qualityScore: number;
   classificationConfidence: number;
-  ownership: number;
+  lineageAvailability: number;
+  reviewStatus: number;
 }
 
 const DEFAULT_WEIGHTS: TrustScoreWeights = {
-  metadataCompleteness: 0.25,
-  qualityScore: 0.35,
-  classificationConfidence: 0.25,
-  ownership: 0.15,
+  metadataCompleteness: 0.20,
+  qualityScore: 0.30,
+  classificationConfidence: 0.20,
+  lineageAvailability: 0.15,
+  reviewStatus: 0.15,
 };
 
 export class TrustScoreService {
@@ -35,6 +38,7 @@ export class TrustScoreService {
     private qualityRepo: QualityRepository,
     private trustScoreRepo: TrustScoreRepository,
     private evidenceRepo: EvidenceRepository,
+    private relationshipRepo?: RelationshipRepository,
     weights?: Partial<TrustScoreWeights>
   ) {
     this.weights = { ...DEFAULT_WEIGHTS, ...weights };
@@ -56,7 +60,7 @@ export class TrustScoreService {
     const qualityResults = this.qualityRepo.getByAssetId(asset.id);
     let qualityScore = 0;
     if (qualityResults.length > 0) {
-      const statusScores: Record<string, number> = { PASS: 100, WARNING: 60, FAIL: 0 };
+      const statusScores: Record<string, number> = { PASS: 100, WARN: 60, WARNING: 60, FAIL: 0 };
       const total = qualityResults.reduce((sum, r) => sum + (statusScores[r.status] ?? 0), 0);
       qualityScore = total / qualityResults.length;
     } else {
@@ -85,13 +89,50 @@ export class TrustScoreService {
       contribution: classificationScore * this.weights.classificationConfidence,
     });
 
-    // 4. Ownership
-    const ownershipScore = asset.owner ? 100 : (asset.domain ? 50 : 0);
+    // 4. Lineage Availability
+    let lineageScore = 0;
+    if (this.relationshipRepo) {
+      const relationships = this.relationshipRepo.getByAssetId(asset.id);
+      if (relationships.length > 0) {
+        lineageScore = 100; // Has relationships
+      } else if (asset.type === 'DATABASE' || asset.type === 'SCHEMA') {
+        lineageScore = 50; // Root nodes don't need upstream
+      } else {
+        lineageScore = 0; // No lineage for tables/columns
+      }
+    } else {
+      lineageScore = 50; // Unknown without relationship repo
+    }
     components.push({
-      factor: 'Ownership & Governance',
-      weight: this.weights.ownership,
-      value: ownershipScore,
-      contribution: ownershipScore * this.weights.ownership,
+      factor: 'Lineage Availability',
+      weight: this.weights.lineageAvailability,
+      value: lineageScore,
+      contribution: lineageScore * this.weights.lineageAvailability,
+    });
+
+    // 5. Review Status
+    let reviewScore = 0;
+    if (classifications.length > 0) {
+      const confirmedCount = classifications.filter(c => c.reviewStatus === 'CONFIRMED').length;
+      const suggestedCount = classifications.filter(c => c.reviewStatus === 'SUGGESTED' || c.reviewStatus === 'PENDING').length;
+      const rejectedCount = classifications.filter(c => c.reviewStatus === 'REJECTED').length;
+      
+      if (classifications.length > 0) {
+        reviewScore = (confirmedCount / classifications.length) * 100;
+        // Partial credit for suggested/pending
+        reviewScore += (suggestedCount / classifications.length) * 30;
+        // Penalty for rejected
+        reviewScore -= (rejectedCount / classifications.length) * 50;
+        reviewScore = Math.max(0, Math.min(100, reviewScore));
+      }
+    } else {
+      reviewScore = asset.type === 'COLUMN' ? 0 : 50; // Non-columns don't need classification review
+    }
+    components.push({
+      factor: 'Review Status',
+      weight: this.weights.reviewStatus,
+      value: reviewScore,
+      contribution: reviewScore * this.weights.reviewStatus,
     });
 
     // Total score

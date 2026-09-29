@@ -8,6 +8,7 @@ import type { Asset, Classification, ClassificationType, ColumnMetadata } from '
 import { generateId } from '../lib/utils';
 
 interface ClassificationRule {
+  id: string;
   pattern: RegExp;
   classificationType: ClassificationType;
   confidence: number;
@@ -16,60 +17,70 @@ interface ClassificationRule {
 
 const CLASSIFICATION_RULES: ClassificationRule[] = [
   {
+    id: 'rule-email-exact',
     pattern: /^email$/i,
     classificationType: 'PII_EMAIL',
     confidence: 0.98,
     reason: 'Column name matches "email" — high confidence PII email pattern.',
   },
   {
+    id: 'rule-email-contains',
     pattern: /email/i,
     classificationType: 'PII_EMAIL',
     confidence: 0.85,
     reason: 'Column name contains "email" — likely PII email.',
   },
   {
+    id: 'rule-name-pattern',
     pattern: /^(full_?name|first_?name|last_?name|nombre)$/i,
     classificationType: 'PII_NAME',
     confidence: 0.92,
     reason: 'Column name matches person name pattern — PII.',
   },
   {
+    id: 'rule-name-contains',
     pattern: /name/i,
     classificationType: 'PII_NAME',
     confidence: 0.6,
     reason: 'Column name contains "name" — possible PII name.',
   },
   {
+    id: 'rule-phone-exact',
     pattern: /^phone$|^tel(e phone)?$/i,
     classificationType: 'PII_PHONE',
     confidence: 0.95,
     reason: 'Column name matches phone pattern — PII phone number.',
   },
   {
+    id: 'rule-phone-contains',
     pattern: /phone|mobile|cel/i,
     classificationType: 'PII_PHONE',
     confidence: 0.8,
     reason: 'Column name contains phone-related term — likely PII.',
   },
   {
+    id: 'rule-identifier',
     pattern: /^.*_id$|^id$/i,
     classificationType: 'IDENTIFIER',
     confidence: 0.9,
     reason: 'Column name matches identifier pattern.',
   },
   {
+    id: 'rule-timestamp',
     pattern: /created_at|updated_at|timestamp|date/i,
     classificationType: 'TIMESTAMP',
     confidence: 0.88,
     reason: 'Column name matches timestamp/date pattern.',
   },
   {
+    id: 'rule-geographic',
     pattern: /region|country|city|state|zip|postal|address/i,
     classificationType: 'GEOGRAPHIC',
     confidence: 0.75,
     reason: 'Column name matches geographic pattern.',
   },
   {
+    id: 'rule-financial',
     pattern: /salary|amount|price|balance|revenue/i,
     classificationType: 'FINANCIAL',
     confidence: 0.8,
@@ -102,7 +113,8 @@ export class ClassificationEngine {
           confidence: rule.confidence,
           method: 'RULE',
           reason: rule.reason,
-          reviewStatus: 'PENDING',
+          ruleId: rule.id,
+          reviewStatus: 'SUGGESTED',
           createdAt: new Date().toISOString(),
         };
 
@@ -136,7 +148,8 @@ export class ClassificationEngine {
       confidence: 0.5,
       method: 'RULE',
       reason: 'No classification rule matched this column name.',
-      reviewStatus: 'PENDING',
+      ruleId: 'rule-none',
+      reviewStatus: 'SUGGESTED',
       createdAt: new Date().toISOString(),
     };
 

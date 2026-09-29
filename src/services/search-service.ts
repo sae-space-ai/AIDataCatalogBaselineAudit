@@ -45,6 +45,22 @@ export class SearchService {
       });
     }
 
+    // Text search also includes metadata and classification
+    if (query.text) {
+      const lower = query.text.toLowerCase();
+      filteredAssets = filteredAssets.filter(asset => {
+        // Already matched by name/qualifiedName/description in repo
+        // Now also check metadata and classification
+        const metadataStr = JSON.stringify(asset.metadata).toLowerCase();
+        if (metadataStr.includes(lower)) return true;
+        
+        const classifications = this.classificationRepo.getByAssetId(asset.id);
+        if (classifications.some(c => c.classificationType.toLowerCase().includes(lower))) return true;
+        
+        return false;
+      });
+    }
+
     // Enrich with classification and trust info (already available via repos)
     return {
       assets: filteredAssets,

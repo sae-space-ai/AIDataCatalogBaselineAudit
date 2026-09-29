@@ -14,6 +14,8 @@ export function CatalogPage() {
   const [searchText, setSearchText] = useState('');
   const [typeFilter, setTypeFilter] = useState<AssetType | ''>('');
   const [sensitivityFilter, setSensitivityFilter] = useState('');
+  const [classificationFilter, setClassificationFilter] = useState('');
+  const [reviewStatusFilter, setReviewStatusFilter] = useState('');
 
   const query: SearchQuery = useMemo(() => ({
     text: searchText || undefined,
@@ -22,7 +24,34 @@ export function CatalogPage() {
     pageSize: 100,
   }), [searchText, typeFilter, sensitivityFilter]);
 
-  const result = searchAssets(query);
+  let result = searchAssets(query);
+
+  // Additional client-side filtering for classification and review status
+  if (classificationFilter || reviewStatusFilter) {
+    const filtered = result.assets.filter(asset => {
+      const assetClassifications = classifications.filter(c => c.assetId === asset.id);
+      
+      if (classificationFilter) {
+        if (!assetClassifications.some(c => c.classificationType === classificationFilter)) {
+          return false;
+        }
+      }
+      
+      if (reviewStatusFilter) {
+        if (!assetClassifications.some(c => c.reviewStatus === reviewStatusFilter)) {
+          return false;
+        }
+      }
+      
+      return true;
+    });
+    
+    result = {
+      ...result,
+      assets: filtered,
+      total: filtered.length,
+    };
+  }
 
   // Helper: get classification for asset
   const getClassification = (assetId: string) => {
@@ -34,7 +63,7 @@ export function CatalogPage() {
     const results = qualityResults.filter(r => r.assetId === assetId);
     if (results.length === 0) return null;
     const hasFail = results.some(r => r.status === 'FAIL');
-    const hasWarn = results.some(r => r.status === 'WARNING');
+    const hasWarn = results.some(r => r.status === 'WARN' || r.status === 'WARNING');
     if (hasFail) return <Badge variant="danger">FAIL</Badge>;
     if (hasWarn) return <Badge variant="warning">WARN</Badge>;
     return <Badge variant="success">PASS</Badge>;
@@ -149,6 +178,32 @@ export function CatalogPage() {
             <option value="CONFIDENTIAL">Confidential</option>
             <option value="RESTRICTED">Restricted</option>
             <option value="UNKNOWN">Unknown</option>
+          </select>
+          <select
+            value={classificationFilter}
+            onChange={e => setClassificationFilter(e.target.value)}
+            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+          >
+            <option value="">All Classifications</option>
+            <option value="PII_EMAIL">PII Email</option>
+            <option value="PII_NAME">PII Name</option>
+            <option value="PII_PHONE">PII Phone</option>
+            <option value="IDENTIFIER">Identifier</option>
+            <option value="TIMESTAMP">Timestamp</option>
+            <option value="GEOGRAPHIC">Geographic</option>
+            <option value="FINANCIAL">Financial</option>
+            <option value="NONE">None</option>
+          </select>
+          <select
+            value={reviewStatusFilter}
+            onChange={e => setReviewStatusFilter(e.target.value)}
+            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+          >
+            <option value="">All Review Status</option>
+            <option value="SUGGESTED">Suggested</option>
+            <option value="CONFIRMED">Confirmed</option>
+            <option value="REJECTED">Rejected</option>
+            <option value="NEEDS_REVIEW">Needs Review</option>
           </select>
           <span className="text-xs text-gray-400">
             {result.total} asset{result.total !== 1 ? 's' : ''}

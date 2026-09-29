@@ -42,7 +42,8 @@ export type ReviewStatus = 'PENDING' | 'CONFIRMED' | 'REJECTED' | 'SUGGESTED' | 
 
 export type QualityRuleType = 'NULL_RATIO' | 'UNIQUENESS' | 'MIN_VALUE' | 'MAX_VALUE' | 'ROW_COUNT' | 'COMPLETENESS' | 'CONSISTENCY' | 'FRESHNESS' | 'VALIDITY';
 
-export type QualityStatus = 'PASS' | 'WARNING' | 'FAIL' | 'NOT_EVALUATED';
+export type QualityStatus = 'PASS' | 'WARN' | 'WARNING' | 'FAIL' | 'NOT_EVALUATED';
+// Note: WARNING is deprecated, use WARN instead. Both accepted for backward compatibility.
 
 export type QualityDimension = 'COMPLETENESS' | 'UNIQUENESS' | 'VALIDITY' | 'CONSISTENCY' | 'FRESHNESS';
 
@@ -209,6 +210,7 @@ export interface Classification {
   confidence: number;
   method: ClassificationMethod;
   reason: string;
+  ruleId?: string; // Optional for backward compatibility
   reviewStatus: ReviewStatus;
   reviewedBy?: string;
   reviewedAt?: string;

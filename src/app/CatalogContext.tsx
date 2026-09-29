@@ -54,6 +54,9 @@ import type {
 } from '../types';
 import { generateId } from '../lib/utils';
 
+// Demo actor constant - clearly identifies non-authenticated operations
+export const DEMO_REVIEW_ACTOR = 'demo-reviewer';
+
 // ---- Service Container ----
 
 interface ServiceContainer {
@@ -117,7 +120,8 @@ function createServiceContainer(): ServiceContainer {
     classificationRepo,
     qualityRepo,
     trustScoreRepo,
-    evidenceRepo
+    evidenceRepo,
+    relationshipRepo
   );
 
   const searchService = new SearchService(
@@ -216,22 +220,22 @@ const CatalogContext = createContext<CatalogContextValue | null>(null);
 
 export function CatalogProvider({ children }: { children: React.ReactNode }) {
   const [services] = useState<ServiceContainer>(() => createServiceContainer());
-  const [, setVersion] = useState(0);
+  const [version, setVersion] = useState(0);
 
   const refresh = useCallback(() => {
     setVersion(v => v + 1);
   }, []);
 
-  // Data accessors
-  const assets = useMemo(() => services.assetRepo.getAll(), [services, /* version */]);
-  const sources = useMemo(() => services.sourceRepo.getAll(), [services]);
-  const scanRuns = useMemo(() => services.scanRepo.getAll(), [services]);
-  const relationships = useMemo(() => services.relationshipRepo.getAll(), [services]);
-  const classifications = useMemo(() => services.classificationRepo.getAll(), [services]);
-  const qualityResults = useMemo(() => services.qualityRepo.getAll(), [services]);
-  const evidence = useMemo(() => services.evidenceRepo.getAll(), [services]);
-  const auditEvents = useMemo(() => services.auditRepo.getAll(), [services]);
-  const trustScores = useMemo(() => services.trustScoreRepo.getAll(), [services]);
+  // Data accessors - MUST depend on version to trigger re-render after mutations
+  const assets = useMemo(() => services.assetRepo.getAll(), [services, version]);
+  const sources = useMemo(() => services.sourceRepo.getAll(), [services, version]);
+  const scanRuns = useMemo(() => services.scanRepo.getAll(), [services, version]);
+  const relationships = useMemo(() => services.relationshipRepo.getAll(), [services, version]);
+  const classifications = useMemo(() => services.classificationRepo.getAll(), [services, version]);
+  const qualityResults = useMemo(() => services.qualityRepo.getAll(), [services, version]);
+  const evidence = useMemo(() => services.evidenceRepo.getAll(), [services, version]);
+  const auditEvents = useMemo(() => services.auditRepo.getAll(), [services, version]);
+  const trustScores = useMemo(() => services.trustScoreRepo.getAll(), [services, version]);
 
   // Actions
   const createDemoSource = useCallback((name: string, description?: string): DataSource => {
@@ -252,7 +256,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
       type: 'SOURCE_CREATED',
       subjectType: 'DataSource',
       subjectId: source.id,
-      actor: 'user',
+      actor: DEMO_REVIEW_ACTOR,
       timestamp: new Date().toISOString(),
       source: 'CatalogContext.createDemoSource',
       metadata: { name, type: 'DEMO' },
@@ -260,7 +264,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
 
     services.auditRepo.save({
       id: generateId(),
-      actor: 'user',
+      actor: DEMO_REVIEW_ACTOR,
       action: 'CREATE',
       resourceType: 'DataSource',
       resourceId: source.id,
@@ -286,7 +290,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
       type: 'CONNECTION_TESTED',
       subjectType: 'DataSource',
       subjectId: sourceId,
-      actor: 'user',
+      actor: DEMO_REVIEW_ACTOR,
       timestamp: new Date().toISOString(),
       source: 'CatalogContext.testConnection',
       metadata: { success: result.success, latencyMs: result.latencyMs },
@@ -294,7 +298,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
 
     services.auditRepo.save({
       id: generateId(),
-      actor: 'user',
+      actor: DEMO_REVIEW_ACTOR,
       action: 'CONNECT',
       resourceType: 'DataSource',
       resourceId: sourceId,
@@ -345,7 +349,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
   }, [services]);
 
   const reviewClassification = useCallback((id: string, status: 'CONFIRMED' | 'REJECTED') => {
-    services.classificationEngine.reviewClassification(id, status, 'user');
+    services.classificationEngine.reviewClassification(id, status, DEMO_REVIEW_ACTOR);
     refresh();
   }, [services, refresh]);
 

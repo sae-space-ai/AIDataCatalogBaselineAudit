@@ -8,26 +8,37 @@ import { timeAgo } from '../lib/utils';
 import { Link } from 'react-router-dom';
 
 export function DashboardPage() {
-  const { assets, sources, scanRuns, classifications, qualityResults, evidence, auditEvents } = useCatalog();
+  const { assets, sources, scanRuns, classifications, qualityResults, evidence, auditEvents, relationships } = useCatalog();
 
   const totalAssets = assets.length;
   const totalSources = sources.length;
   const latestScan = scanRuns[0];
   const classifiedAssets = new Set(classifications.map(c => c.assetId)).size;
-  const qualityIssues = qualityResults.filter(r => r.status === 'FAIL' || r.status === 'WARNING').length;
+  const assetsNeedingReview = new Set(
+    classifications
+      .filter(c => c.reviewStatus === 'SUGGESTED' || c.reviewStatus === 'PENDING' || c.reviewStatus === 'NEEDS_REVIEW')
+      .map(c => c.assetId)
+  ).size;
+  const qualityIssues = qualityResults.filter(r => r.status === 'FAIL' || r.status === 'WARN' || r.status === 'WARNING').length;
+  const assetsWithLineage = new Set(
+    relationships.map(r => r.sourceAssetId).concat(relationships.map(r => r.targetAssetId))
+  ).size;
   const totalEvidence = evidence.length;
+  const totalAuditEvents = auditEvents.length;
 
   return (
     <div className="space-y-6">
       <DemoBanner />
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
         <StatCard label="Total Assets" value={totalAssets} />
         <StatCard label="Sources" value={totalSources} />
         <StatCard label="Latest Scan" value={latestScan ? timeAgo(latestScan.startedAt) : '—'} />
         <StatCard label="Classified" value={classifiedAssets} />
+        <StatCard label="Needs Review" value={assetsNeedingReview} />
         <StatCard label="Quality Issues" value={qualityIssues} />
+        <StatCard label="With Lineage" value={assetsWithLineage} />
         <StatCard label="Evidence" value={totalEvidence} />
       </div>
 
