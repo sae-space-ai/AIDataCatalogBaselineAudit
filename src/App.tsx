@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { CatalogProvider, useCatalog } from './app/CatalogContext';
 import { BlueprintProvider } from './blueprints/context';
 import { GovernanceProvider } from './governance/context';
+import { AIGovernanceProvider } from './ai-governance/context';
 import { Layout } from './components/Layout';
 import { DashboardPage } from './pages/DashboardPage';
 import { CatalogPage } from './pages/CatalogPage';
@@ -24,6 +25,10 @@ import { GovernanceReviewsPage } from './pages/governance/ReviewsPage';
 import { GovernanceAuditorViewPage } from './pages/governance/AuditorViewPage';
 import { GovernanceTimelinePage } from './pages/governance/TimelinePage';
 import { ComplianceExportPage } from './pages/governance/ComplianceExportPage';
+import { AIGovernanceDashboardPage } from './pages/ai-governance/DashboardPage';
+import { AIGovernanceTrainingDataPage } from './pages/ai-governance/TrainingDataPage';
+import { AIGovernanceRAGResourcesPage } from './pages/ai-governance/RAGResourcesPage';
+import { AIGovernanceDriftPage } from './pages/ai-governance/DriftPage';
 import { AgentRegistry } from './agents/registry';
 import { useState } from 'react';
 
@@ -39,8 +44,9 @@ function AppContent() {
   return (
     <BlueprintProvider agentRegistry={agentRegistry}>
       <GovernanceProvider>
-        <Layout>
-          <Routes>
+        <AIGovernanceProvider>
+          <Layout>
+            <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/catalog" element={<CatalogPage />} />
@@ -59,8 +65,13 @@ function AppContent() {
             <Route path="/governance/auditor" element={<GovernanceAuditorViewPage />} />
             <Route path="/governance/timeline" element={<GovernanceTimelinePage />} />
             <Route path="/governance/export" element={<ComplianceExportPage />} />
+            <Route path="/ai-governance" element={<AIGovernanceDashboardPage />} />
+            <Route path="/ai-governance/training-data" element={<AIGovernanceTrainingDataPage />} />
+            <Route path="/ai-governance/rag-resources" element={<AIGovernanceRAGResourcesPage />} />
+            <Route path="/ai-governance/drift" element={<AIGovernanceDriftPage />} />
           </Routes>
         </Layout>
+        </AIGovernanceProvider>
       </GovernanceProvider>
     </BlueprintProvider>
   );

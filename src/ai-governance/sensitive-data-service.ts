@@ -39,8 +39,11 @@ export class SensitiveDataPreventionService {
       c.classificationType === 'FINANCIAL'
     );
 
+    // Note: Classification doesn't have sensitivity property
+    // We infer sensitivity from classificationType
     const confidentialDataDetected = classifications.some(c => 
-      c.sensitivity === 'CONFIDENTIAL' || c.sensitivity === 'RESTRICTED'
+      c.classificationType === 'FINANCIAL' || 
+      c.classificationType === 'GEOGRAPHIC'
     );
 
     // Determine status
