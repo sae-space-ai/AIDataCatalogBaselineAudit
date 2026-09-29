@@ -708,6 +708,113 @@ function createMockAsset(name: string, type: Asset['type'], qualifiedName: strin
   };
 }
 
+// ---- Application Config Tests ----
+
+import { determineApplicationConfig, getConfig, resetConfig, isDemoMode, isRealMode } from '../src/app/config';
+
+describe('Application Config', () => {
+  beforeEach(() => {
+    resetConfig();
+  });
+
+  it('should default to DEMO mode when no API is configured', () => {
+    const config = determineApplicationConfig();
+    expect(config.mode).toBe('DEMO');
+    expect(config.persistence).toBe('IN_MEMORY');
+    expect(config.databaseStatus).toBe('NOT_CONFIGURED');
+  });
+
+  it('should provide human review in DEMO mode', () => {
+    const config = determineApplicationConfig();
+    expect(config.features.humanReview).toBe(true);
+  });
+
+  it('should not enable real scan in DEMO mode', () => {
+    const config = determineApplicationConfig();
+    expect(config.features.realScan).toBe(false);
+  });
+
+  it('should provide singleton config', () => {
+    const config1 = getConfig();
+    const config2 = getConfig();
+    expect(config1).toBe(config2);
+  });
+
+  it('should reset config correctly', () => {
+    const config1 = getConfig();
+    resetConfig();
+    const config2 = getConfig();
+    expect(config1).not.toBe(config2);
+  });
+
+  it('should provide isDemoMode helper', () => {
+    expect(isDemoMode()).toBe(true);
+    expect(isRealMode()).toBe(false);
+  });
+});
+
+// ---- Repository Bundle Tests ----
+
+import { createDemoRepositoryBundle, createRepositoryBundle } from '../src/infrastructure/repositories';
+
+describe('Repository Bundle', () => {
+  it('should create demo repository bundle', () => {
+    const bundle = createDemoRepositoryBundle();
+    expect(bundle.assetRepo).toBeDefined();
+    expect(bundle.sourceRepo).toBeDefined();
+    expect(bundle.scanRepo).toBeDefined();
+    expect(bundle.classificationRepo).toBeDefined();
+    expect(bundle.qualityRepo).toBeDefined();
+    expect(bundle.evidenceRepo).toBeDefined();
+    expect(bundle.auditRepo).toBeDefined();
+    expect(bundle.trustScoreRepo).toBeDefined();
+    expect(bundle.relationshipRepo).toBeDefined();
+    expect(bundle.assetVersionRepo).toBeDefined();
+  });
+
+  it('should create bundle for DEMO mode', () => {
+    const bundle = createRepositoryBundle('DEMO');
+    expect(bundle.assetRepo).toBeDefined();
+  });
+
+  it('should fall back to DEMO when REAL is requested without API', () => {
+    const bundle = createRepositoryBundle('REAL');
+    expect(bundle.assetRepo).toBeDefined();
+  });
+});
+
+// ---- PostgreSQL Connector Tests ----
+
+import { PostgresConnector, POSTGRES_CONNECTOR_STATUS } from '../src/infrastructure/postgres-connector';
+
+describe('PostgreSQL Connector', () => {
+  it('should have ADAPTER_READY status', () => {
+    expect(POSTGRES_CONNECTOR_STATUS).toBe('ADAPTER_READY');
+  });
+
+  it('should return failure on test connection', async () => {
+    const connector = new PostgresConnector('test-ref');
+    const result = await connector.testConnection();
+    expect(result.success).toBe(false);
+    expect(result.message).toContain('not available');
+  });
+
+  it('should throw on discover', async () => {
+    const connector = new PostgresConnector('test-ref');
+    await expect(connector.discover()).rejects.toThrow('not yet implemented');
+  });
+
+  it('should throw on extractMetadata', async () => {
+    const connector = new PostgresConnector('test-ref');
+    await expect(connector.extractMetadata('test')).rejects.toThrow('not yet implemented');
+  });
+
+  it('should expose connection ref', () => {
+    const connector = new PostgresConnector('my-ref');
+    expect(connector.getConnectionRef()).toBe('my-ref');
+  });
+});
+
 // ---- ImpactAnalyzer Tests ----
 
 import { ImpactAnalyzer } from '../src/services/impact-analyzer';

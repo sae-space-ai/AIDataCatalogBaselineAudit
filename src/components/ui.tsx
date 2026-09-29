@@ -305,7 +305,23 @@ export function ProgressBar({ value, max = 100, label, showValue = true, color =
 
 // ---- DemoBanner ----
 
+import { useCatalog } from '../app/CatalogContext';
+
 export function DemoBanner() {
+  const { isDemoMode } = useCatalog();
+  
+  if (!isDemoMode) {
+    // In REAL mode, show a different indicator
+    return (
+      <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-md px-3 py-2 text-xs text-green-700 dark:text-green-300 flex items-center gap-2">
+        <svg className="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+        </svg>
+        <span><strong>LIVE DATA</strong> — Connected to real data sources with persistent storage.</span>
+      </div>
+    );
+  }
+  
   return (
     <div className="bg-purple-50 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-800 rounded-md px-3 py-2 text-xs text-purple-700 dark:text-purple-300 flex items-center gap-2">
       <svg className="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">

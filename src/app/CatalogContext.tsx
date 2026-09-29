@@ -38,6 +38,7 @@ import { SearchService } from '../services/search-service';
 import { ScanEngine, ScanResult } from '../services/scan-engine';
 import { ImpactAnalyzer } from '../services/impact-analyzer';
 import { PolicyEngine } from '../services/policy-engine';
+import { getConfig, type ApplicationMode } from './config';
 import type {
   Asset,
   AssetRelationship,
@@ -183,6 +184,11 @@ function createServiceContainer(): ServiceContainer {
 interface CatalogContextValue {
   // Services (read-only access)
   services: ServiceContainer;
+  
+  // Application mode (DEMO or REAL)
+  mode: ApplicationMode;
+  isDemoMode: boolean;
+  isRealMode: boolean;
 
   // Data accessors (trigger re-render)
   assets: Asset[];
@@ -367,8 +373,13 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
     return evaluations;
   }, [services, refresh]);
 
+  const config = getConfig();
+  
   const value: CatalogContextValue = {
     services,
+    mode: config.mode,
+    isDemoMode: config.mode === 'DEMO',
+    isRealMode: config.mode === 'REAL',
     assets,
     sources,
     scanRuns,

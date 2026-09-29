@@ -4,6 +4,7 @@
 
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useCatalog } from '../app/CatalogContext';
 
 interface NavItem {
   path: string;
@@ -81,9 +82,28 @@ interface LayoutProps {
   children: React.ReactNode;
 }
 
+function ModeIndicator() {
+  const { isDemoMode } = useCatalog();
+  
+  if (isDemoMode) {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">
+        DEMO
+      </span>
+    );
+  }
+  
+  return (
+    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
+      LIVE
+    </span>
+  );
+}
+
 export function Layout({ children }: LayoutProps) {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const { isDemoMode } = useCatalog();
 
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-950 overflow-hidden">
@@ -150,11 +170,11 @@ export function Layout({ children }: LayoutProps) {
             </h1>
           </div>
           <div className="flex items-center gap-3">
-            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">
-              DEMO
-            </span>
+            <ModeIndicator />
             <div className="w-7 h-7 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-              <span className="text-xs font-medium text-gray-600 dark:text-gray-300">U</span>
+              <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
+                {isDemoMode ? 'D' : 'U'}
+              </span>
             </div>
           </div>
         </header>
