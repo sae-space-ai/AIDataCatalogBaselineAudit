@@ -3,3 +3,17 @@ node_modules/
 dist/
 build/
 *.log
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Vercel
+.vercel
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
